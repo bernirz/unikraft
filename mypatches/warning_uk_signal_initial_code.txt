@@ -1,0 +1,135 @@
+WARNING: added, moved or deleted file(s), does MAINTAINERS need updating?
+#122: 
+new file mode 100644
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#229: FILE: lib/uksignal/include/uk/bits/sigset.h:27:
++#define uk_sigemptyset(ptr)	\
++		do {	\
++			*(ptr) = 0;	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#233: FILE: lib/uksignal/include/uk/bits/sigset.h:31:
++#define uk_sigfillset(ptr)	\
++		do {	\
++			*(ptr) = ~((__sigset_t) 0);	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#237: FILE: lib/uksignal/include/uk/bits/sigset.h:35:
++#define uk_sigaddset(ptr, signo)	\
++		do {	\
++			*(ptr) |= (1 << ((signo) - 1));	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#241: FILE: lib/uksignal/include/uk/bits/sigset.h:39:
++#define uk_sigdelset(ptr, signo)	\
++		do {	\
++			*(ptr) &= ~(1 << ((signo) - 1));	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#245: FILE: lib/uksignal/include/uk/bits/sigset.h:43:
++#define uk_sigcopyset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) = *(ptr2);	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#249: FILE: lib/uksignal/include/uk/bits/sigset.h:47:
++#define uk_sigandset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) &= *(ptr2);	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#253: FILE: lib/uksignal/include/uk/bits/sigset.h:51:
++#define uk_sigorset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) |= *(ptr2);	\
++		} while (0)
+
+WARNING: Single statement macros should not use a do {} while (0) loop
+#257: FILE: lib/uksignal/include/uk/bits/sigset.h:55:
++#define uk_sigreverseset(ptr)	\
++		do {	\
++			*(ptr) = ~(*(ptr));	\
++		} while (0)
+
+WARNING: please, no spaces at the start of a line
+#338: FILE: lib/uksignal/include/uk/signal.h:64:
++  int          si_signo;    /* Signal number */$
+
+WARNING: please, no spaces at the start of a line
+#339: FILE: lib/uksignal/include/uk/signal.h:65:
++  int          si_code;     /* Cause of the signal */$
+
+WARNING: please, no spaces at the start of a line
+#340: FILE: lib/uksignal/include/uk/signal.h:66:
++  pid_t^I       si_pid;^I    /* Sending process ID */$
+
+WARNING: line over 80 characters
+#461: FILE: lib/uksignal/include/uk/uk_signal.h:25:
++	/* pending signals - valid only if corresponding bit in pending is set */
+
+WARNING: please, no space before tabs
+#482: FILE: lib/uksignal/include/uk/uk_signal.h:46:
++^I * ^IUK_SIG_NOT_WAITING - thread is not waiting$
+
+WARNING: please, no space before tabs
+#483: FILE: lib/uksignal/include/uk/uk_signal.h:47:
++^I * ^IUK_SIG_WAITING - thread is waiting for a signal$
+
+WARNING: please, no space before tabs
+#484: FILE: lib/uksignal/include/uk/uk_signal.h:48:
++^I * ^IUK_SIG_WAITING_SCHED - thread is waiting to be scheduled$
+
+WARNING: line over 80 characters
+#652: FILE: lib/uksignal/signal.c:74:
++		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask, signum);
+
+WARNING: line over 80 characters
+#661: FILE: lib/uksignal/signal.c:83:
++				th_sig = uk_list_entry(i, struct uk_thread_sig, list_node);
+
+WARNING: line over 80 characters
+#666: FILE: lib/uksignal/signal.c:88:
++					/* remove it from the list of pending signals */
+
+WARNING: line over 80 characters
+#668: FILE: lib/uksignal/signal.c:90:
++					uk_sigdelset(&th_sig->pending, signal->info.si_signo);
+
+WARNING: return of an errno should typically be negative (ie: return -EINVAL)
+#795: FILE: lib/uksignal/signal.c:217:
++		return EINVAL;
+
+WARNING: line over 80 characters
+#1120: FILE: lib/uksignal/uk_signal.c:92:
++		signal = uk_list_first_entry(&ptr->pending_signals, struct uk_signal, list_node);
+
+WARNING: line over 80 characters
+#1125: FILE: lib/uksignal/uk_signal.c:97:
++			uk_list_add_tail(&signal->list_node, &ptr->pending_signals);
+
+WARNING: line over 80 characters
+#1185: FILE: lib/uksignal/uk_signal.c:157:
++		tid = __containerof(th_sig, struct uk_thread, signals_container);
+
+WARNING: line over 80 characters
+#1307: FILE: lib/uksignal/uk_signal.c:279:
++		/* Changed the mask, see if we can deliver any pending signals */
+
+total: 0 errors, 25 warnings, 1362 lines checked
+
+NOTE: For some of the reported defects, checkpatch may be able to
+      mechanically convert to the typical style using --fix or --fix-inplace.
+
+0001-lib-uksignal-initial-code.patch has style problems, please review.
+
+NOTE: Ignored message types: ASSIGN_IN_IF NEW_TYPEDEFS
+
+NOTE: If any of the errors are false positives, please report
+      them to the maintainer, see CHECKPATCH in MAINTAINERS.
