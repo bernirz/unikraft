@@ -8,7 +8,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 #define SIGHUP    1
 #define SIGINT    2
 #define SIGQUIT   3

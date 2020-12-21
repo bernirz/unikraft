@@ -1,6 +1,6 @@
 diff --color -Nurp musl-1.1.19/arch/x86_64/bits/signal.h musl-1.1.19.new/arch/x86_64/bits/signal.h
 --- musl-1.1.19/arch/x86_64/bits/signal.h	2018-02-22 19:39:19.000000000 +0100
-+++ musl-1.1.19.new/arch/x86_64/bits/signal.h	2020-12-16 02:01:37.758440263 +0100
++++ musl-1.1.19.new/arch/x86_64/bits/signal.h	2020-12-21 01:52:00.055587772 +0100
 @@ -1,3 +1,7 @@
 +#ifdef CONFIG_LIBUKSIGNAL
 +#include <uk/signal.h>
@@ -9,7 +9,18 @@ diff --color -Nurp musl-1.1.19/arch/x86_64/bits/signal.h musl-1.1.19.new/arch/x8
  #if defined(_POSIX_SOURCE) || defined(_POSIX_C_SOURCE) \
   || defined(_XOPEN_SOURCE) || defined(_GNU_SOURCE) || defined(_BSD_SOURCE)
  
-@@ -97,12 +101,14 @@ struct sigaltstack {
+@@ -88,21 +92,26 @@ typedef struct {
+ } mcontext_t;
+ #endif
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ struct sigaltstack {
+ 	void *ss_sp;
+ 	int ss_flags;
+ 	size_t ss_size;
+ };
++#endif
+ 
  typedef struct __ucontext {
  	unsigned long uc_flags;
  	struct __ucontext *uc_link;
@@ -20,12 +31,13 @@ diff --color -Nurp musl-1.1.19/arch/x86_64/bits/signal.h musl-1.1.19.new/arch/x8
  	unsigned long __fpregs_mem[64];
  } ucontext_t;
  
++#endif
 +#ifndef CONFIG_LIBUKSIGNAL
 +
  #define SA_NOCLDSTOP  1
  #define SA_NOCLDWAIT  2
  #define SA_SIGINFO    4
-@@ -112,8 +118,6 @@ typedef struct __ucontext {
+@@ -112,8 +121,6 @@ typedef struct __ucontext {
  #define SA_RESETHAND  0x80000000
  #define SA_RESTORER   0x04000000
  
@@ -34,12 +46,11 @@ diff --color -Nurp musl-1.1.19/arch/x86_64/bits/signal.h musl-1.1.19.new/arch/x8
  #define SIGHUP    1
  #define SIGINT    2
  #define SIGQUIT   3
-@@ -151,3 +155,6 @@ typedef struct __ucontext {
+@@ -151,3 +158,5 @@ typedef struct __ucontext {
  
  #define _NSIG 65
  
 +#endif
-+#endif // LIBUKSIGNAL
 +
 diff --color -Nurp musl-1.1.19/include/alltypes.h.in musl-1.1.19.new/include/alltypes.h.in
 --- musl-1.1.19/include/alltypes.h.in	2020-12-09 22:19:27.429161000 +0100
@@ -55,11 +66,12 @@ diff --color -Nurp musl-1.1.19/include/alltypes.h.in musl-1.1.19.new/include/all
  
 diff --color -Nurp musl-1.1.19/include/signal.h musl-1.1.19.new/include/signal.h
 --- musl-1.1.19/include/signal.h	2018-02-22 19:39:19.000000000 +0100
-+++ musl-1.1.19.new/include/signal.h	2020-12-14 01:36:18.563363334 +0100
-@@ -1,6 +1,10 @@
++++ musl-1.1.19.new/include/signal.h	2020-12-21 00:57:06.259850182 +0100
+@@ -1,6 +1,11 @@
  #ifndef _SIGNAL_H
  #define _SIGNAL_H
  
++#define CONFIG_LIBUKSIGNAL
 +#ifdef CONFIG_LIBUKSIGNAL
 +#include <uk/signal.h>
 +#endif
@@ -67,7 +79,7 @@ diff --color -Nurp musl-1.1.19/include/signal.h musl-1.1.19.new/include/signal.h
  #ifdef __cplusplus
  extern "C" {
  #endif
-@@ -41,8 +45,6 @@ extern "C" {
+@@ -41,8 +46,6 @@ extern "C" {
  #define SI_USER 0
  #define SI_KERNEL 128
  
@@ -76,14 +88,13 @@ diff --color -Nurp musl-1.1.19/include/signal.h musl-1.1.19.new/include/signal.h
  #endif
  
  #include <bits/signal.h>
-@@ -89,6 +91,11 @@ typedef struct sigaltstack stack_t;
+@@ -89,6 +92,10 @@ typedef struct sigaltstack stack_t;
  #define CLD_STOPPED 5
  #define CLD_CONTINUED 6
  
++#ifndef CONFIG_LIBUKSIGNAL
 +
 +typedef struct sigaltstack stack_t;
-+
-+#ifndef CONFIG_LIBUKSIGNAL
 +
  union sigval {
  	int sival_int;
@@ -99,30 +110,20 @@ diff --color -Nurp musl-1.1.19/include/signal.h musl-1.1.19.new/include/signal.h
  int __libc_current_sigrtmin(void);
  int __libc_current_sigrtmax(void);
  
-@@ -215,9 +218,14 @@ int sigqueue(pid_t, int, const union sig
- int pthread_sigmask(int, const sigset_t *__restrict, sigset_t *__restrict);
- int pthread_kill(pthread_t, int);
- 
-+#endif // CONFIG_LIBUKSIGNAL
-+
+@@ -218,8 +221,13 @@ int pthread_kill(pthread_t, int);
  void psiginfo(const siginfo_t *, const char *);
  void psignal(int, const char *);
+ 
++#endif // CONFIG_LIBUKSIGNAL
+ #endif
  
 +#define SIGEV_SIGNAL 0
 +#define SIGEV_NONE 1
 +#define SIGEV_THREAD 2
- #endif
- 
++
  #if defined(_XOPEN_SOURCE) || defined(_BSD_SOURCE) || defined(_GNU_SOURCE)
-@@ -243,7 +251,7 @@ void (*sigset(int, void (*)(int)))(int);
- #define SS_FLAG_BITS SS_AUTODISARM
- #endif
- 
--#if defined(_BSD_SOURCE) || defined(_GNU_SOURCE)
-+#if (defined(_BSD_SOURCE) || defined(_GNU_SOURCE)) && defined(CONFIG_LIBUKSIGNAL)
- #define NSIG _NSIG
- typedef void (*sig_t)(int);
- #endif
+ int killpg(pid_t, int);
+ int sigaltstack(const stack_t *__restrict, stack_t *__restrict);
 diff --color -Nurp musl-1.1.19/include/sys/signal.h musl-1.1.19.new/include/sys/signal.h
 --- musl-1.1.19/include/sys/signal.h	2018-02-22 19:39:19.000000000 +0100
 +++ musl-1.1.19.new/include/sys/signal.h	2020-12-13 18:59:46.733474746 +0100
@@ -148,14 +149,155 @@ diff --color -Nurp musl-1.1.19/include/sys/wait.h musl-1.1.19.new/include/sys/wa
  int waitid (idtype_t, id_t, siginfo_t *, int);
  #endif
  
+diff --color -Nurp musl-1.1.19/src/aio/aio.c musl-1.1.19.new/src/aio/aio.c
+--- musl-1.1.19/src/aio/aio.c	2018-02-22 19:39:19.000000000 +0100
++++ musl-1.1.19.new/src/aio/aio.c	2020-12-21 01:19:20.023674588 +0100
+@@ -171,17 +171,21 @@ static void cleanup(void *ctx)
+ 	if (sev.sigev_notify == SIGEV_SIGNAL) {
+ 		siginfo_t si = {
+ 			.si_signo = sev.sigev_signo,
+-			.si_value = sev.sigev_value,
+ 			.si_code = SI_ASYNCIO,
++#ifndef CONFIG_LIBUKSIGNAL
++			.si_value = sev.sigev_value,
+ 			.si_pid = getpid(),
+ 			.si_uid = getuid()
++#endif
+ 		};
+ 		__syscall(SYS_rt_sigqueueinfo, si.si_pid, si.si_signo, &si);
+ 	}
++#ifndef CONFIG_LIBUKSIGNAL
+ 	if (sev.sigev_notify == SIGEV_THREAD) {
+ 		a_store(&__pthread_self()->cancel, 0);
+ 		sev.sigev_notify_function(sev.sigev_value);
+ 	}
++#endif
+ }
+ 
+ static void *io_thread_func(void *ctx)
+@@ -266,6 +270,7 @@ static int submit(struct aiocb *cb, int
+ 	struct aio_args args = { .cb = cb, .op = op };
+ 	sem_init(&args.sem, 0, 0);
+ 
++#ifndef CONFIG_LIBUKSIGNAL // FIXME?
+ 	if (cb->aio_sigevent.sigev_notify == SIGEV_THREAD) {
+ 		if (cb->aio_sigevent.sigev_notify_attributes)
+ 			a = *cb->aio_sigevent.sigev_notify_attributes;
+@@ -276,6 +281,7 @@ static int submit(struct aiocb *cb, int
+ 		pthread_attr_setstacksize(&a, PTHREAD_STACK_MIN);
+ 		pthread_attr_setguardsize(&a, 0);
+ 	}
++#endif
+ 	pthread_attr_setdetachstate(&a, PTHREAD_CREATE_DETACHED);
+ 	sigfillset(&allmask);
+ 	pthread_sigmask(SIG_BLOCK, &allmask, &origmask);
+diff --color -Nurp musl-1.1.19/src/aio/lio_listio.c musl-1.1.19.new/src/aio/lio_listio.c
+--- musl-1.1.19/src/aio/lio_listio.c	2018-02-22 19:39:19.000000000 +0100
++++ musl-1.1.19.new/src/aio/lio_listio.c	2020-12-21 02:50:52.916895319 +0100
+@@ -42,10 +42,12 @@ static void notify_signal(struct sigeven
+ {
+ 	siginfo_t si = {
+ 		.si_signo = sev->sigev_signo,
+-		.si_value = sev->sigev_value,
+ 		.si_code = SI_ASYNCIO,
+ 		.si_pid = getpid(),
++#ifndef CONFIG_LIBUKSIGNAL
++		.si_value = sev->sigev_value,
+ 		.si_uid = getuid()
++#endif
+ 	};
+ 	__syscall(SYS_rt_sigqueueinfo, si.si_pid, si.si_signo, &si);
+ }
+@@ -61,7 +63,9 @@ static void *wait_thread(void *p)
+ 		notify_signal(sev);
+ 		break;
+ 	case SIGEV_THREAD:
++#ifndef CONFIG_LIBUKSIGNAL
+ 		sev->sigev_notify_function(sev->sigev_value);
++#endif
+ 		break;
+ 	}
+ 	return 0;
+@@ -118,9 +122,11 @@ int lio_listio(int mode, struct aiocb *r
+ 		pthread_t td;
+ 
+ 		if (sev->sigev_notify == SIGEV_THREAD) {
++#ifndef CONFIG_LIBUKSIGNAL
+ 			if (sev->sigev_notify_attributes)
+ 				a = *sev->sigev_notify_attributes;
+ 			else
++#endif
+ 				pthread_attr_init(&a);
+ 		} else {
+ 			pthread_attr_init(&a);
+diff --color -Nurp musl-1.1.19/src/internal/pthread_impl.h musl-1.1.19.new/src/internal/pthread_impl.h
+--- musl-1.1.19/src/internal/pthread_impl.h	2018-02-22 19:39:19.000000000 +0100
++++ musl-1.1.19.new/src/internal/pthread_impl.h	2020-12-21 02:26:27.480686601 +0100
+@@ -46,7 +46,11 @@ struct pthread {
+ 	volatile int killlock[1];
+ 	volatile int exitlock[1];
+ 	volatile int startlock[2];
++#ifdef CONFIG_LIBUKSIGNAL
++	unsigned long sigmask;
++#else
+ 	unsigned long sigmask[_NSIG/8/sizeof(long)];
++#endif
+ 	char *dlerror_buf;
+ 	int dlerror_flag;
+ 	void *stdio_locks;
+@@ -114,9 +118,13 @@ struct __timer {
+ #define SIGSYNCCALL 34
+ 
+ #define SIGALL_SET ((sigset_t *)(const unsigned long long [2]){ -1,-1 })
++#ifdef CONFIG_LIBUKSIGNAL
++#define SIGPT_SET 1 //FIXME broken
++#else
+ #define SIGPT_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	[sizeof(long)==4] = 3UL<<(32*(sizeof(long)>4)) })
++#endif
+ #define SIGTIMER_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	 0x80000000 })
+diff --color -Nurp musl-1.1.19/src/misc/wordexp.c musl-1.1.19.new/src/misc/wordexp.c
+--- musl-1.1.19/src/misc/wordexp.c	2018-02-22 19:39:19.000000000 +0100
++++ musl-1.1.19.new/src/misc/wordexp.c	2020-12-20 23:39:16.099143141 +0100
+@@ -6,7 +6,7 @@
+ #include <stdint.h>
+ #include <stdlib.h>
+ #include <sys/wait.h>
+-#include <signal.h>
++#include <uk/signal.h>
+ #include <errno.h>
+ #include <fcntl.h>
+ #include "pthread_impl.h"
 diff --color -Nurp musl-1.1.19/src/mq/mq_notify.c musl-1.1.19.new/src/mq/mq_notify.c
 --- musl-1.1.19/src/mq/mq_notify.c	2018-02-22 19:39:19.000000000 +0100
-+++ musl-1.1.19.new/src/mq/mq_notify.c	2020-12-13 21:45:52.789047440 +0100
-@@ -45,8 +45,11 @@ int mq_notify(mqd_t mqd, const struct si
++++ musl-1.1.19.new/src/mq/mq_notify.c	2020-12-21 03:02:28.793411342 +0100
+@@ -18,14 +18,18 @@ static void *start(void *p)
+ 	char buf[32];
+ 	ssize_t n;
+ 	int s = args->sock;
++#ifndef CONFIG_LIBUKSIGNAL // FIXME
+ 	void (*func)(union sigval) = args->sev->sigev_notify_function;
++#endif
+ 	union sigval val = args->sev->sigev_value;
+ 
+ 	pthread_barrier_wait(&args->barrier);
+ 	n = recv(s, buf, sizeof(buf), MSG_NOSIGNAL|MSG_WAITALL);
+ 	close(s);
++#ifndef CONFIG_LIBUKSIGNAL // FIXME
+ 	if (n==sizeof buf && buf[sizeof buf - 1] == 1)
+ 		func(val);
++#endif
+ 	return 0;
+ }
+ 
+@@ -45,8 +49,11 @@ int mq_notify(mqd_t mqd, const struct si
  	if (s < 0) return -1;
  	args.sock = s;
  
-+#if !(CONFIG_LIBUKSIGNAL) // FIXME
++#ifndef CONFIG_LIBUKSIGNAL // FIXME
  	if (sev->sigev_notify_attributes) attr = *sev->sigev_notify_attributes;
  	else pthread_attr_init(&attr);
 +#endif
@@ -223,14 +365,28 @@ diff --color -Nurp musl-1.1.19/src/signal/sigaltstack.c musl-1.1.19.new/src/sign
  #include <errno.h>
  #include "syscall.h"
  
+diff --color -Nurp musl-1.1.19/src/signal/sigqueue.c musl-1.1.19.new/src/signal/sigqueue.c
+--- musl-1.1.19/src/signal/sigqueue.c	2018-02-22 19:39:19.000000000 +0100
++++ musl-1.1.19.new/src/signal/sigqueue.c	2020-12-21 01:31:39.855131584 +0100
+@@ -12,8 +12,10 @@ int sigqueue(pid_t pid, int sig, const u
+ 	memset(&si, 0, sizeof si);
+ 	si.si_signo = sig;
+ 	si.si_code = SI_QUEUE;
++#ifndef CONFIG_LIBUKSIGNAL
+ 	si.si_value = value;
+ 	si.si_uid = getuid();
++#endif
+ 	__block_app_sigs(&set);
+ 	si.si_pid = getpid();
+ 	r = syscall(SYS_rt_sigqueueinfo, pid, sig, &si);
 diff --color -Nurp musl-1.1.19/src/thread/pthread_cancel.c musl-1.1.19.new/src/thread/pthread_cancel.c
 --- musl-1.1.19/src/thread/pthread_cancel.c	2018-02-22 19:39:19.000000000 +0100
-+++ musl-1.1.19.new/src/thread/pthread_cancel.c	2020-12-14 02:01:26.350254246 +0100
++++ musl-1.1.19.new/src/thread/pthread_cancel.c	2020-12-21 01:49:20.203592479 +0100
 @@ -41,8 +41,12 @@ long __syscall_cp_c(syscall_arg_t nr,
  
  static void _sigaddset(sigset_t *set, int sig)
  {
-+#if CONFIG_LIBUKSIGNAL
++#ifdef CONFIG_LIBUKSIGNAL
 +	sigaddset(set, sig);
 +#else
  	unsigned s = sig-1;
