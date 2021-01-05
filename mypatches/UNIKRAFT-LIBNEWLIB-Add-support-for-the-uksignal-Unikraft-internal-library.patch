@@ -1,0 +1,156 @@
+From ad20de21abade72f77636f71954a0067646df162 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Sun, 20 Dec 2020 20:36:54 +0100
+Subject: [NEWLIB PATCH 1/1] lib/newlib: Support for uksignal
+
+This patch is an update of the original.
+
+Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ Makefile.uk      |  4 ++++
+ include/signal.h | 11 +++++++++++
+ plat.c           |  8 --------
+ signal.c         | 50 +++++++++++++++++-------------------------------
+ 4 files changed, 33 insertions(+), 40 deletions(-)
+ create mode 100644 include/signal.h
+
+diff --git a/Makefile.uk b/Makefile.uk
+index 82836e4..bb3b65f 100644
+--- a/Makefile.uk
++++ b/Makefile.uk
+@@ -136,7 +136,9 @@ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/resource.c
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/pty.c
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/locale.c
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/dev.c
++ifneq ($(CONFIG_LIBUKSIGNAL),y)
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/signal.c
++endif
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/link.c
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/mntent.c
+ LIBNEWLIBGLUE_SRCS-y += $(LIBNEWLIBC_BASE)/syscall.c
+@@ -414,9 +416,11 @@ LIBNEWLIBC_SRCS-y += $(LIBNEWLIB_LIBC)/search/bsd_qsort_r.c
+ ################################################################################
+ # Newlib/libc code -- signal
+ ################################################################################
++ifneq ($(CONFIG_LIBUKSIGNAL),y)
+ LIBNEWLIBC_SRCS-y += $(LIBNEWLIB_LIBC)/signal/psignal.c
+ LIBNEWLIBC_SRCS-y += $(LIBNEWLIB_LIBC)/signal/raise.c
+ LIBNEWLIBC_SRCS-y += $(LIBNEWLIB_LIBC)/signal/signal.c
++endif
+ 
+ ################################################################################
+ # Newlib/libc code -- stdio
+diff --git a/include/signal.h b/include/signal.h
+new file mode 100644
+index 0000000..778dec1
+--- /dev/null
++++ b/include/signal.h
+@@ -0,0 +1,11 @@
++#ifndef _NEWLIB_GLUE_SIGNAL_H_
++#define _NEWLIB_GLUE_SIGNAL_H_
++#include <uk/config.h>
++
++#if CONFIG_LIBUKSIGNAL
++#include <uk/signal.h>
++#else
++#include_next <signal.h>
++#endif
++
++#endif /* _NEWLIB_GLUE_SIGNAL_H_ */
+diff --git a/plat.c b/plat.c
+index df07dce..2a12801 100644
+--- a/plat.c
++++ b/plat.c
+@@ -47,14 +47,6 @@ int getentropy(void *buf __unused, size_t buflen __unused)
+ 	return -1;
+ }
+ 
+-int sigprocmask(int how __unused, const sigset_t *set __unused,
+-		sigset_t *oldset __unused)
+-{
+-	/* TODO: implement. */
+-	errno = ENOTSUP;
+-	return -1;
+-}
+-
+ #include <uk/plat/bootstrap.h>
+ 
+ void abort(void)
+diff --git a/signal.c b/signal.c
+index 4279ee7..1f6cae3 100644
+--- a/signal.c
++++ b/signal.c
+@@ -37,51 +37,37 @@
+ #include <errno.h>
+ #include <signal.h>
+ 
++int kill(int pid __unused, int sig __unused)
++{
++	errno = EINVAL;
++	return -1;
++}
++
+ int sigaction(int sig __unused, const struct sigaction *restrict act __unused,
+-	      struct sigaction *restrict oact __unused)
++	     struct sigaction *restrict oact __unused)
+ {
+ 	return 0;
+ }
+-
++
++int sigprocmask(int how __unused, const sigset_t *set __unused,
++				sigset_t *oldset __unused)
++{
++	/* TODO: implement. */
++	errno = ENOTSUP;
++	return -1;
++}
++
+ unsigned int alarm(unsigned int seconds __unused)
+ {
+ 	return 0;
+ }
+-
++
+ int pause(void)
+ {
+ 	return 0;
+ }
+-
++
+ int siginterrupt(int sig __unused, int flag __unused)
+ {
+ 	return 0;
+ }
+-
+-int sigsuspend(const sigset_t *mask)
+-{
+-	return 0;
+-}
+-
+-int kill(int pid, int sig __unused)
+-{
+-	/* TODO check sig */
+-	if (pid != UNIKRAFT_PID)
+-		errno = ESRCH;
+-	return -1;
+-}
+-
+-int killpg(int pgrp, int sig __unused)
+-{
+-	/* TODO check sig */
+-	if (pgrp != UNIKRAFT_PGID)
+-		errno = ESRCH;
+-	return -1;
+-}
+-
+-int sigaltstack(const stack_t *ss, stack_t *old_ss)
+-{
+-	WARN_STUBBED();
+-	errno = ENOTSUP;
+-	return -1;
+-}
+-- 
+2.25.1
+

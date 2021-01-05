@@ -1,0 +1,146 @@
+From f67707e81af76fb75d4ae742de0c1da990af73a6 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Sun, 20 Dec 2020 20:45:04 +0100
+Subject: [PTHREAD EMBEDDED PATCH 1/1] lib/pthread-embedded: Support for
+ uksignal
+ 
+This patch is an update of the original.
+
+Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ Makefile.uk                                   |  2 ++
+ include/pte_osal.h                            |  8 +++++++
+ include/pte_types.h                           |  8 +++++++
+ ...ead_kill_when_uk_signals_are_enabled.patch | 24 +++++++++++++++++++
+ pte_osal.c                                    | 18 ++++++++++++++
+ 5 files changed, 60 insertions(+)
+ create mode 100644 patches/0012-Add_pthread_kill_when_uk_signals_are_enabled.patch
+
+diff --git a/Makefile.uk b/Makefile.uk
+index 4ee37cd..2611c7d 100644
+--- a/Makefile.uk
++++ b/Makefile.uk
+@@ -65,7 +65,9 @@ LIBPTHREAD-EMBEDDED_CXXFLAGS-y += $(LIBPTHREAD-EMBEDDED_SUPPRESS_FLAGS)
+ LIBPTHREAD-EMBEDDED_SRCS-y += $(LIBPTHREAD-EMBEDDED_BASE)/pte_osal.c|glue
+ LIBPTHREAD-EMBEDDED_SRCS-y += $(LIBPTHREAD-EMBEDDED_BASE)/attributes.c|glue
+ LIBPTHREAD-EMBEDDED_SRCS-y += $(LIBPTHREAD-EMBEDDED_BASE)/pthread_atfork.c|glue
++ifneq ($(CONFIG_LIBUKSIGNAL),y)
+ LIBPTHREAD-EMBEDDED_SRCS-y += $(LIBPTHREAD-EMBEDDED_BASE)/pthread_sigmask.c|glue
++endif
+ LIBPTHREAD-EMBEDDED_SRCS-y += $(LIBPTHREAD-EMBEDDED_BASE)/pthread_condattr.c|glue
+ 
+ ################################################################################
+diff --git a/include/pte_osal.h b/include/pte_osal.h
+index bcf5374..34122ea 100644
+--- a/include/pte_osal.h
++++ b/include/pte_osal.h
+@@ -4,10 +4,18 @@
+ #include <uk/mutex.h>
+ #include <uk/semaphore.h>
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
++
+ typedef struct uk_thread* pte_osThreadHandle;
+ typedef struct uk_semaphore *pte_osSemaphoreHandle;
+ typedef struct uk_mutex *pte_osMutexHandle;
+ 
++#ifdef __cplusplus
++}
++#endif
++
+ #define OS_MAX_SIMUL_THREADS \
+ 	CONFIG_LIBPTHREAD_EMBEDDED_MAX_SIMUL_THREADS
+ 
+diff --git a/include/pte_types.h b/include/pte_types.h
+index c9081fa..817e313 100644
+--- a/include/pte_types.h
++++ b/include/pte_types.h
+@@ -3,8 +3,16 @@
+ 
+ #include <sys/timeb.h>
+ 
++#ifdef __cplusplus
++extern "C" {
++#endif
++
+ typedef unsigned int tid_t;
+ 
+ typedef int pid_t;
+ 
++#ifdef __cplusplus
++}
++#endif
++
+ #endif /* __PTE_TYPES_H__ */
+diff --git a/patches/0012-Add_pthread_kill_when_uk_signals_are_enabled.patch b/patches/0012-Add_pthread_kill_when_uk_signals_are_enabled.patch
+new file mode 100644
+index 0000000..cf30aca
+--- /dev/null
++++ b/patches/0012-Add_pthread_kill_when_uk_signals_are_enabled.patch
+@@ -0,0 +1,24 @@
++diff --git a/pthread_kill.c b/pthread_kill.c
++index 3a6daf6..4ea7448 100644
++--- a/pthread_kill.c
+++++ b/pthread_kill.c
++@@ -47,7 +47,9 @@
++ #include "pthread.h"
++ #include "implement.h"
++
++-#ifdef __hermit__
+++#include <uk/config.h>
+++
+++#if CONFIG_LIBUKSIGNAL
++ int pte_kill(pte_osThreadHandle threadId, int sig);
++ #endif
++
++@@ -98,7 +100,7 @@ pthread_kill (pthread_t thread, int sig)
++
++   pte_osMutexUnlock(pte_thread_reuse_lock);
++
++-#ifdef __hermit__
+++#if CONFIG_LIBUKSIGNAL
++   result = pte_kill(tp->threadId, sig);
++ #else
++   if (0 == result && 0 != sig)
+diff --git a/pte_osal.c b/pte_osal.c
+index 640c3e4..0aac5fd 100644
+--- a/pte_osal.c
++++ b/pte_osal.c
+@@ -103,6 +103,19 @@ out:
+ 	return result;
+ }
+ 
++/***************************************************************************
++ *
++ * Signal handling
++ *
++ **************************************************************************/
++#if CONFIG_LIBUKSIGNAL
++int pte_kill(pte_osThreadHandle threadId, int sig)
++{
++	return uk_sig_thread_kill(threadId, sig);
++}
++#endif
++
++
+ /****************************************************************************
+  *
+  * Threads
+@@ -162,6 +175,11 @@ pte_osResult pte_osThreadCreate(pte_osThreadEntryPoint entry_point,
+ 		return PTE_OS_NO_RESOURCES;
+ 	}
+ 
++#if CONFIG_LIBUKSIGNAL
++	/* inherit signal mask */
++	ptd->uk_thread->signals_container.mask = uk_thread_current()->signals_container.mask;
++#endif
++
+ 	ptd->uk_thread->prv = ptd;
+ 
+ 	*ph = ptd->uk_thread;
+-- 
+2.25.1
+
