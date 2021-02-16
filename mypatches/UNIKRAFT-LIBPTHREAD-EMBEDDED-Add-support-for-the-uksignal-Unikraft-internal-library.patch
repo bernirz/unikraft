@@ -1,13 +1,15 @@
 From f67707e81af76fb75d4ae742de0c1da990af73a6 Mon Sep 17 00:00:00 2001
 From: Bernard Rizzo <b.rizzo@student.uliege.be>
 Date: Sun, 20 Dec 2020 20:45:04 +0100
-Subject: [PTHREAD EMBEDDED PATCH 1/1] lib/pthread-embedded: Support for
+Subject: [UNIKRAFT/PTHREAD EMBEDDED PATCH v2 1/1] lib/pthread-embedded: Support for
  uksignal
  
 This patch is an update of the original.
+v2: updated subject & authorship.
 
+Signed-off-by: Mihai Pogonaru <pogonarumihai@gmail.com>
+Signed-off-by: Teodora Serbanescu <teo.serbanescu16@gmail.com>
 Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
-Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
 ---
  Makefile.uk                                   |  2 ++
  include/pte_osal.h                            |  8 +++++++

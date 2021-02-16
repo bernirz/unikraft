@@ -110,11 +110,13 @@ union sigval {
 	void  *sival_ptr;	/* Pointer signal value */
 };
 
+#ifndef CONFIG_LIBMUSL
 struct sigevent {
 	int              sigev_notify;	/* Notification type */
 	int              sigev_signo;	/* Signal number */
 	union sigval     sigev_value;	/* Signal value */
 };
+#endif
 
 /* TODO: not used - defined just for v8 */
 typedef struct sigaltstack {

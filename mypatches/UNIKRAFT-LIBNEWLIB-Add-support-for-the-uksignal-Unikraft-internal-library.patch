@@ -1,10 +1,12 @@
 From ad20de21abade72f77636f71954a0067646df162 Mon Sep 17 00:00:00 2001
 From: Bernard Rizzo <b.rizzo@student.uliege.be>
 Date: Sun, 20 Dec 2020 20:36:54 +0100
-Subject: [NEWLIB PATCH 1/1] lib/newlib: Support for uksignal
+Subject: [UNIKRAFT/NEWLIB PATCH v2 1/1] lib/newlib: Support for uksignal
 
 This patch is an update of the original.
+v2: updated subject & authorship.
 
+Signed-off-by: Mihai Pogonaru <pogonarumihai@gmail.com>
 Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
 Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
 ---

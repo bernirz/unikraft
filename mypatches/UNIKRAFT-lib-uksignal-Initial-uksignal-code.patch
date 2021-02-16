@@ -17,6 +17,8 @@ solution until we have a proper events delivering system.
 
 This patch is an update of the original.
 
+Signed-off-by: Mihai Pogonaru <pogonarumihai@gmail.com>
+Signed-off-by: Teodora Serbanescu <teo.serbanescu16@gmail.com>
 Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
 Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
 ---
