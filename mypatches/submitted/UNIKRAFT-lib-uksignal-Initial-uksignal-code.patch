@@ -1,0 +1,1524 @@
+From 9d20751f7b4485b8b6433a363a6e2d94b9034095 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Sun, 20 Dec 2020 21:43:05 +0100
+Subject: [UNIKRAFT PATCH 1/1] lib/uksignal: initial code
+
+uksignal provides a basic implementation of signals over Unikraft. It
+supports signals between threads and process wide signals. It provides
+all the definitions needed for signals so we must disable the
+definitions provided in libc to run it.
+
+It does not support signal codes, rt signals and executes the signal
+handlers on the thread stack. It is also not yet integrated with our
+irqs to deliver signals like SIGSEGV.
+
+This implementation is not complete; it is meant as a temporory
+solution until we have a proper events delivering system.
+
+This patch is an update of the original.
+
+Signed-off-by: Mihai Pogonaru <pogonarumihai@gmail.com>
+Signed-off-by: Teodora Serbanescu <teo.serbanescu16@gmail.com>
+Signed-off-by: Felipe Huici <felipe.huici@neclab.eu>
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ lib/Makefile.uk                            |   1 +
+ lib/uksched/include/uk/thread.h            |   6 +
+ lib/uksched/sched.c                        |   7 +
+ lib/uksched/thread.c                       |   6 +
+ lib/uksignal/Config.uk                     |   7 +
+ lib/uksignal/Makefile.uk                   |   8 +
+ lib/uksignal/README                        |   7 +
+ lib/uksignal/exportsyms.uk                 |  27 ++
+ lib/uksignal/include/uk/bits/sigset.h      |  66 +++
+ lib/uksignal/include/uk/signal.h           | 131 ++++++
+ lib/uksignal/include/uk/string/strsignal.h |  19 +
+ lib/uksignal/include/uk/uk_signal.h        | 136 +++++++
+ lib/uksignal/signal.c                      | 320 +++++++++++++++
+ lib/uksignal/sigset.c                      |  51 +++
+ lib/uksignal/strsignal.c                   |  61 +++
+ lib/uksignal/uk_signal.c                   | 451 +++++++++++++++++++++
+ plat/common/x86/thread_start.S             |   7 +
+ 17 files changed, 1311 insertions(+)
+ create mode 100644 lib/uksignal/Config.uk
+ create mode 100644 lib/uksignal/Makefile.uk
+ create mode 100644 lib/uksignal/README
+ create mode 100644 lib/uksignal/exportsyms.uk
+ create mode 100644 lib/uksignal/include/uk/bits/sigset.h
+ create mode 100644 lib/uksignal/include/uk/signal.h
+ create mode 100644 lib/uksignal/include/uk/string/strsignal.h
+ create mode 100644 lib/uksignal/include/uk/uk_signal.h
+ create mode 100644 lib/uksignal/signal.c
+ create mode 100644 lib/uksignal/sigset.c
+ create mode 100644 lib/uksignal/strsignal.c
+ create mode 100644 lib/uksignal/uk_signal.c
+
+diff --git a/lib/Makefile.uk b/lib/Makefile.uk
+index 07e8a29..f50795d 100644
+--- a/lib/Makefile.uk
++++ b/lib/Makefile.uk
+@@ -37,3 +37,4 @@ $(eval $(call _import_lib,$(CONFIG_UK_BASE)/lib/ukmmap))
+ $(eval $(call _import_lib,$(CONFIG_UK_BASE)/lib/ukblkdev))
+ $(eval $(call _import_lib,$(CONFIG_UK_BASE)/lib/posix-process))
+ $(eval $(call _import_lib,$(CONFIG_UK_BASE)/lib/uksp))
++$(eval $(call _import_lib,$(CONFIG_UK_BASE)/lib/uksignal))
+diff --git a/lib/uksched/include/uk/thread.h b/lib/uksched/include/uk/thread.h
+index d8a4ac8..5ec25a8 100644
+--- a/lib/uksched/include/uk/thread.h
++++ b/lib/uksched/include/uk/thread.h
+@@ -36,6 +36,9 @@
+ #include <uk/arch/lcpu.h>
+ #include <uk/arch/time.h>
+ #include <uk/plat/thread.h>
++#if CONFIG_LIBUKSIGNAL
++#include <uk/uk_signal.h>
++#endif
+ #include <uk/thread_attr.h>
+ #include <uk/wait_types.h>
+ #include <uk/list.h>
+@@ -62,6 +65,9 @@ struct uk_thread {
+ #ifdef CONFIG_LIBNEWLIBC
+ 	struct _reent reent;
+ #endif
++#if CONFIG_LIBUKSIGNAL
++	struct uk_thread_sig signals_container;
++#endif
+ };
+ 
+ UK_TAILQ_HEAD(uk_thread_list, struct uk_thread);
+diff --git a/lib/uksched/sched.c b/lib/uksched/sched.c
+index 4b8e149..5a58629 100644
+--- a/lib/uksched/sched.c
++++ b/lib/uksched/sched.c
+@@ -42,6 +42,9 @@
+ #if CONFIG_LIBUKSCHEDCOOP
+ #include <uk/schedcoop.h>
+ #endif
++#if CONFIG_LIBUKSIGNAL
++#include <uk/uk_signal.h>
++#endif
+ 
+ struct uk_sched *uk_sched_head;
+ 
+@@ -50,6 +53,10 @@ struct uk_sched *uk_sched_default_init(struct uk_alloc *a)
+ {
+ 	struct uk_sched *s = NULL;
+ 
++#if CONFIG_LIBUKSIGNAL
++	uk_proc_sig_init(&uk_proc_sig);
++#endif
++
+ #if CONFIG_LIBUKSCHEDCOOP
+ 	s = uk_schedcoop_init(a);
+ #endif
+diff --git a/lib/uksched/thread.c b/lib/uksched/thread.c
+index f8ae786..609a4ce 100644
+--- a/lib/uksched/thread.c
++++ b/lib/uksched/thread.c
+@@ -125,6 +125,9 @@ int uk_thread_init(struct uk_thread *thread,
+ #ifdef CONFIG_LIBNEWLIBC
+ 	reent_init(&thread->reent);
+ #endif
++#if CONFIG_LIBUKSIGNAL
++	uk_thread_sig_init(&thread->signals_container);
++#endif
+ 
+ 	uk_pr_info("Thread \"%s\": pointer: %p, stack: %p, tls: %p\n",
+ 		   name, thread, thread->stack, thread->tls);
+@@ -135,6 +138,9 @@ int uk_thread_init(struct uk_thread *thread,
+ void uk_thread_fini(struct uk_thread *thread, struct uk_alloc *allocator)
+ {
+ 	UK_ASSERT(thread != NULL);
++#if CONFIG_LIBUKSIGNAL
++	uk_thread_sig_uninit(&thread->signals_container);
++#endif
+ 	ukplat_thread_ctx_destroy(allocator, thread->ctx);
+ }
+ 
+diff --git a/lib/uksignal/Config.uk b/lib/uksignal/Config.uk
+new file mode 100644
+index 0000000..56c1644
+--- /dev/null
++++ b/lib/uksignal/Config.uk
+@@ -0,0 +1,7 @@
++menuconfig LIBUKSIGNAL
++	bool "uksignal: Unikraft signals"
++	default n
++	select LIBNOLIBC if !HAVE_LIBC
++	select LIBUKDEBUG
++	select LIBUKALLOC
++	select LIBUKSCHED
+diff --git a/lib/uksignal/Makefile.uk b/lib/uksignal/Makefile.uk
+new file mode 100644
+index 0000000..0f1f539
+--- /dev/null
++++ b/lib/uksignal/Makefile.uk
+@@ -0,0 +1,8 @@
++$(eval $(call addlib_s,libuksignal,$(CONFIG_LIBUKSIGNAL)))
++
++CINCLUDES-$(CONFIG_LIBUKSIGNAL)     += -I$(LIBUKSIGNAL_BASE)/include
++CXXINCLUDES-$(CONFIG_LIBUKSIGNAL)   += -I$(LIBUKSIGNAL_BASE)/include
++
++LIBUKSIGNAL_SRCS-y += $(LIBUKSIGNAL_BASE)/signal.c
++LIBUKSIGNAL_SRCS-y += $(LIBUKSIGNAL_BASE)/sigset.c
++LIBUKSIGNAL_SRCS-y += $(LIBUKSIGNAL_BASE)/uk_signal.c
+\ No newline at end of file
+diff --git a/lib/uksignal/README b/lib/uksignal/README
+new file mode 100644
+index 0000000..ff8691f
+--- /dev/null
++++ b/lib/uksignal/README
+@@ -0,0 +1,7 @@
++This library provides a basic implementation of signals over
++Unikraft. It supports signals between threads and process wide
++signals.
++
++It doesn't support signal codes, rt signals and executes the signal
++handlers on the thread stack. It is also not yet integrated with our
++irqs to deliver signals like SIGSEGV.
+\ No newline at end of file
+diff --git a/lib/uksignal/exportsyms.uk b/lib/uksignal/exportsyms.uk
+new file mode 100644
+index 0000000..dbf23fe
+--- /dev/null
++++ b/lib/uksignal/exportsyms.uk
+@@ -0,0 +1,27 @@
++# uk_signal.h
++uk_proc_sig
++
++uk_sig_handle_signals
++uk_proc_sig_init
++uk_thread_sig_init
++uk_thread_sig_uninit
++uk_sig_thread_kill
++uk_thread_sigmask
++
++# signal.h
++sigaction
++signal
++sigprocmask
++sigsuspend
++sigpending
++sigwait
++kill
++raise
++pthread_sigmask
++
++# sigset.h
++sigemptyset
++sigfillset
++sigaddset
++sigdelset
++sigismember
+\ No newline at end of file
+diff --git a/lib/uksignal/include/uk/bits/sigset.h b/lib/uksignal/include/uk/bits/sigset.h
+new file mode 100644
+index 0000000..3642633
+--- /dev/null
++++ b/lib/uksignal/include/uk/bits/sigset.h
+@@ -0,0 +1,66 @@
++#ifndef __UK_SIGNAL_H__
++#error Do not include this header directly
++#endif
++
++#ifndef __UK_SIGSET_H__
++#define __UK_SIGSET_H__
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define SIG_BLOCK     0
++#define SIG_UNBLOCK   1
++#define SIG_SETMASK   2
++
++typedef unsigned long __sigset_t;
++typedef __sigset_t sigset_t;
++
++int sigemptyset(sigset_t *set);
++int sigfillset(sigset_t *set);
++int sigaddset(sigset_t *set, int signo);
++int sigdelset(sigset_t *set, int signo);
++int sigismember(const sigset_t *set, int signo);
++
++/* TODO: do we have gnu statement expression?  */
++/* internal use */
++#define uk_sigemptyset(ptr)	\
++		do {	\
++			*(ptr) = 0;	\
++		} while (0)
++#define uk_sigfillset(ptr)	\
++		do {	\
++			*(ptr) = ~((__sigset_t) 0);	\
++		} while (0)
++#define uk_sigaddset(ptr, signo)	\
++		do {	\
++			*(ptr) |= (1 << ((signo) - 1));	\
++		} while (0)
++#define uk_sigdelset(ptr, signo)	\
++		do {	\
++			*(ptr) &= ~(1 << ((signo) - 1));	\
++		} while (0)
++#define uk_sigcopyset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) = *(ptr2);	\
++		} while (0)
++#define uk_sigandset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) &= *(ptr2);	\
++		} while (0)
++#define uk_sigorset(ptr1, ptr2)	\
++		do {	\
++			*(ptr1) |= *(ptr2);	\
++		} while (0)
++#define uk_sigreverseset(ptr)	\
++		do {	\
++			*(ptr) = ~(*(ptr));	\
++		} while (0)
++#define uk_sigismember(ptr, signo) (*(ptr) & (1 << ((signo) - 1)))
++#define uk_sigisempty(ptr) (*(ptr) == 0)
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __UK_SIGSET_H__ */
+diff --git a/lib/uksignal/include/uk/signal.h b/lib/uksignal/include/uk/signal.h
+new file mode 100644
+index 0000000..43fdabc
+--- /dev/null
++++ b/lib/uksignal/include/uk/signal.h
+@@ -0,0 +1,131 @@
++/* adapted from OSv */
++#ifndef __UK_SIGNAL_H__
++#define __UK_SIGNAL_H__
++
++#include <stddef.h>
++#include <uk/bits/sigset.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define SIGHUP    1
++#define SIGINT    2
++#define SIGQUIT   3
++#define SIGILL    4
++#define SIGTRAP   5
++#define SIGABRT   6
++#define SIGIOT    SIGABRT
++#define SIGBUS    7
++#define SIGFPE    8
++#define SIGKILL   9
++#define SIGUSR1   10
++#define SIGSEGV   11
++#define SIGUSR2   12
++#define SIGPIPE   13
++#define SIGALRM   14
++#define SIGTERM   15
++#define SIGSTKFLT 16
++#define SIGCHLD   17
++#define SIGCONT   18
++#define SIGSTOP   19
++#define SIGTSTP   20
++#define SIGTTIN   21
++#define SIGTTOU   22
++#define SIGURG    23
++#define SIGXCPU   24
++#define SIGXFSZ   25
++#define SIGVTALRM 26
++#define SIGPROF   27
++#define SIGWINCH  28
++#define SIGIO     29
++#define SIGPOLL   29
++#define SIGPWR    30
++#define SIGSYS    31
++#define SIGUNUSED SIGSYS
++
++#define _NSIG 32
++
++#define SA_NOCLDSTOP  1
++#define SA_NOCLDWAIT  2
++#define SA_SIGINFO    4
++#define SA_ONSTACK    0x08000000
++#define SA_RESTART    0x10000000
++#define SA_NODEFER    0x40000000
++#define SA_RESETHAND  0x80000000
++#define SA_RESTORER   0x04000000
++
++typedef int pid_t;
++typedef int sig_atomic_t;
++
++#define NSIG _NSIG
++
++typedef struct {
++  int          si_signo;    /* Signal number */
++  int          si_code;     /* Cause of the signal */
++  pid_t	       si_pid;	    /* Sending process ID */
++} siginfo_t;
++
++struct sigaction {
++	union {
++		void (*sa_handler)(int);
++		void (*sa_sigaction)(int, siginfo_t *, void *);
++	} __sa_handler;
++	sigset_t sa_mask;
++	int sa_flags;
++	void (*sa_restorer)(void);
++};
++#define sa_handler   __sa_handler.sa_handler
++#define sa_sigaction __sa_handler.sa_sigaction
++
++#define SIG_ERR  ((void (*)(int))-1)
++#define SIG_DFL  ((void (*)(int)) 0)
++#define SIG_IGN  ((void (*)(int)) 1)
++
++/* TODO: do we have gnu statement expression? */
++#define is_sig_dfl(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_DFL)
++
++#define is_sig_ign(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_IGN)
++
++int
++sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
++
++int sigpending(sigset_t *set);
++int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
++int sigsuspend(const sigset_t *mask);
++int sigwait(const sigset_t *set, int *sig);
++
++int kill(pid_t pid, int sig);
++int raise(int sig);
++
++typedef void (*sighandler_t)(int);
++sighandler_t signal(int signum, sighandler_t handler);
++
++int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
++
++/* TODO: not used - defined just for newlib */
++union sigval {
++	int    sival_int;	/* Integer signal value */
++	void  *sival_ptr;	/* Pointer signal value */
++};
++
++struct sigevent {
++	int              sigev_notify;	/* Notification type */
++	int              sigev_signo;	/* Signal number */
++	union sigval     sigev_value;	/* Signal value */
++};
++
++/* TODO: not used - defined just for v8 */
++typedef struct sigaltstack {
++	void *ss_sp;
++	int ss_flags;
++	size_t ss_size;
++} stack_t;
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __UK_SIGNAL_H__ */
+diff --git a/lib/uksignal/include/uk/string/strsignal.h b/lib/uksignal/include/uk/string/strsignal.h
+new file mode 100644
+index 0000000..73b69cb
+--- /dev/null
++++ b/lib/uksignal/include/uk/string/strsignal.h
+@@ -0,0 +1,19 @@
++#ifndef __UK_STRSIGNAL_H__
++#define __UK_STRSIGNAL_H__
++
++/*
++ * TODO: not used - delete
++ */
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++extern const char * const sys_siglist[];
++char *strsignal(int sig);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __UK_STRSIGNAL_H__ */
+diff --git a/lib/uksignal/include/uk/uk_signal.h b/lib/uksignal/include/uk/uk_signal.h
+new file mode 100644
+index 0000000..cb066d1
+--- /dev/null
++++ b/lib/uksignal/include/uk/uk_signal.h
+@@ -0,0 +1,136 @@
++#ifndef __UK_UK_SIGNAL_H__
++#define __UK_UK_SIGNAL_H__
++
++#include <uk/list.h>
++#include <uk/signal.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++#define _UK_TH_SIG uk_crr_thread_sig_container()
++
++struct uk_thread;
++
++struct uk_signal {
++	siginfo_t info;
++	struct uk_list_head list_node;
++};
++
++/* TODO: add synchronization */
++
++struct uk_proc_sig {
++	/* used as a bitmap for pending signals */
++	sigset_t pending;
++	/* pending signals - valid only if corresponding bit in pending is set */
++	siginfo_t pending_signals[NSIG - 1];
++	/* signal handlers for this process */
++	struct sigaction sigaction[NSIG - 1];
++	/* list of uk_thread_sig from the threads of the proc */
++	struct uk_list_head thread_sig_list;
++};
++
++extern struct uk_proc_sig uk_proc_sig;
++
++enum uk_sig_waiting {
++	UK_SIG_NOT_WAITING = 0,
++	UK_SIG_WAITING = 1,
++	UK_SIG_WAITING_SCHED = 2
++};
++
++struct uk_thread_sig_wait {
++	/*
++	 * waiting status
++	 *
++	 * values:
++	 * 	UK_SIG_NOT_WAITING - thread is not waiting
++	 * 	UK_SIG_WAITING - thread is waiting for a signal
++	 * 	UK_SIG_WAITING_SCHED - thread is waiting to be scheduled
++	 */
++	enum uk_sig_waiting status;
++	/* used as a bitmap for awaited signals */
++	sigset_t awaited;
++	/* awaited signal received */
++	siginfo_t received_signal;
++};
++
++struct uk_thread_sig {
++	/* blocked signals */
++	sigset_t mask;
++	/* used as a bitmap for pending signals */
++	sigset_t pending;
++	/* list of pending signals */
++	struct uk_list_head pending_signals;
++	/* signal waiting state */
++	struct uk_thread_sig_wait wait;
++	/* node for the thread_sig_list from the proc */
++	struct uk_list_head list_node;
++};
++
++/* returns number of executed signal handlers */
++int uk_sig_handle_signals(void);
++
++int uk_proc_sig_init(struct uk_proc_sig *sig);
++int uk_thread_sig_init(struct uk_thread_sig *sig);
++void uk_thread_sig_uninit(struct uk_thread_sig *sig);
++
++/* TODO: replace sched thread_kill? */
++int uk_sig_thread_kill(struct uk_thread *tid, int sig);
++int uk_thread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
++
++/* internal use */
++static inline int uk_sig_is_valid(int sig)
++{
++	return (sig < NSIG && sig > 0);
++}
++
++static inline void uk_sigset_remove_unmaskable(sigset_t *sig)
++{
++	uk_sigdelset(sig, SIGKILL);
++	uk_sigdelset(sig, SIGSTOP);
++}
++
++static inline void uk_add_proc_signal(siginfo_t *sig)
++{
++	uk_proc_sig.pending_signals[sig->si_signo - 1] = *sig;
++	uk_sigaddset(&uk_proc_sig.pending, sig->si_signo);
++}
++
++static inline void uk_remove_proc_signal(int sig)
++{
++	uk_sigdelset(&uk_proc_sig.pending, sig);
++}
++
++/* maybe move to sched */
++struct uk_thread_sig *uk_crr_thread_sig_container(void);
++void uk_sig_init_siginfo(siginfo_t *siginfo, int sig);
++
++/* returns the uk_signal for sig if it is pending on thread */
++struct uk_signal *
++uk_sig_th_get_pending(struct uk_thread_sig *th_sig, int sig);
++
++/* returns the siginfo for sig if it is pending on proc */
++siginfo_t *uk_sig_proc_get_pending(int sig);
++
++/*
++ * returns the uk_signal for a signal from the given
++ * set if it is pending on thread
++ */
++struct uk_signal *
++uk_sig_th_get_pending_any(struct uk_thread_sig *th_sig, sigset_t set);
++
++/*
++ * returns the siginfo for a signal from the given
++ * set if it is pending on proc
++ */
++siginfo_t *uk_sig_proc_get_pending_any(sigset_t set);
++
++int
++uk_deliver_proc_signal(struct uk_thread_sig *th_sig, siginfo_t *sig);
++void uk_execute_handler(siginfo_t sig);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __UK_UK_SIGNAL_H__ */
+diff --git a/lib/uksignal/signal.c b/lib/uksignal/signal.c
+new file mode 100644
+index 0000000..5f5e289
+--- /dev/null
++++ b/lib/uksignal/signal.c
+@@ -0,0 +1,320 @@
++/* adapted from OSv */
++
++#include <errno.h>
++
++#include <uk/alloc.h>
++#include <uk/sched.h>
++#include <uk/signal.h>
++#include <uk/thread.h>
++#include <uk/uk_signal.h>
++
++/*
++ * Tries to deliver a pending signal to the current thread
++ * Used only with a waiting thread
++ *
++ * Returns: 0 if no signal was delivered, 1 if a signal was delivered
++ */
++static int uk_get_awaited_signal(void)
++{
++	siginfo_t *siginfo;
++	struct uk_signal *signal;
++	struct uk_thread_sig *ptr;
++
++	ptr = _UK_TH_SIG;
++
++	/* try to deliver thread pending signal */
++	signal = uk_sig_th_get_pending_any(ptr, ptr->wait.awaited);
++
++	if (signal) {
++		/* set awaited signal */
++		ptr->wait.received_signal = signal->info;
++
++		/* remove it from the list of pending signals */
++		uk_list_del(&signal->list_node);
++		uk_sigdelset(&ptr->pending, signal->info.si_signo);
++		uk_free(uk_alloc_get_default(), signal);
++		return 1;
++	}
++
++	/* try to deliver process pending signal */
++	siginfo = uk_sig_proc_get_pending_any(ptr->wait.awaited);
++
++	if (siginfo) {
++		ptr->wait.received_signal = *siginfo;
++
++		/* remove it from the list of pending signals */
++		uk_remove_proc_signal(siginfo->si_signo);
++		return 1;
++	}
++
++	return 0;
++}
++
++/* TODO: We do not support any sa_flags besides SA_SIGINFO */
++int
++sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
++{
++	struct uk_list_head *i;
++	struct uk_thread_sig *th_sig;
++	struct uk_signal *signal;
++
++	if (!uk_sig_is_valid(signum) ||
++			signum == SIGKILL ||
++			signum == SIGSTOP) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	if (oldact)
++		*oldact = uk_proc_sig.sigaction[signum - 1];
++
++	if (act) {
++		/* TODO: SA_NODEFER */
++		uk_proc_sig.sigaction[signum - 1] = *act;
++		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask, signum);
++
++		/* remove signal from where it is pending */
++		if (is_sig_ign(act)) {
++			/* remove it from proc */
++			uk_remove_proc_signal(signum);
++
++			/* remove it from threads*/
++			uk_list_for_each(i, &uk_proc_sig.thread_sig_list) {
++				th_sig = uk_list_entry(i, struct uk_thread_sig, list_node);
++
++				signal = uk_sig_th_get_pending(th_sig, signum);
++
++				if (signal) {
++					/* remove it from the list of pending signals */
++					uk_list_del(&signal->list_node);
++					uk_sigdelset(&th_sig->pending, signal->info.si_signo);
++					uk_free(uk_alloc_get_default(), signal);
++				}
++			}
++		}
++	}
++
++	return 0;
++}
++
++static sighandler_t uk_signal(int signum, sighandler_t handler, int sa_flags)
++{
++	struct sigaction old;
++	struct sigaction act = {
++		.sa_handler = handler,
++		.sa_flags = sa_flags
++	};
++
++	if (sigaction(signum, &act, &old) < 0)
++		return SIG_ERR;
++
++	if (old.sa_flags & SA_SIGINFO)
++		return NULL;
++	else
++		return old.sa_handler;
++}
++
++sighandler_t signal(int signum, sighandler_t handler)
++{
++	/* SA_RESTART <- BSD signal semantics */
++	return uk_signal(signum, handler, SA_RESTART);
++}
++
++int sigpending(sigset_t *set)
++{
++	struct uk_thread_sig *ptr;
++
++	ptr = _UK_TH_SIG;
++
++	uk_sigcopyset(set, &ptr->pending);
++	uk_sigorset(set, &uk_proc_sig.pending);
++
++	return 0;
++}
++
++int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
++{
++	return uk_thread_sigmask(how, set, oldset);
++}
++
++int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
++{
++	return uk_thread_sigmask(how, set, oldset);
++}
++
++int sigsuspend(const sigset_t *mask)
++{
++	/* If the signals are ignored, this doesn't return <- POSIX */
++
++	sigset_t cleaned_mask, tmp;
++	struct uk_thread_sig *ptr;
++
++	uk_sigcopyset(&cleaned_mask, mask);
++	uk_sigset_remove_unmaskable(&cleaned_mask);
++
++	ptr = _UK_TH_SIG;
++
++	uk_sigcopyset(&ptr->wait.awaited, &cleaned_mask);
++
++	/* we are waiting for all the signals that aren't blocked */
++	uk_sigreverseset(&ptr->wait.awaited);
++
++	/* change mask */
++	uk_sigcopyset(&tmp, &ptr->mask);
++	uk_sigcopyset(&ptr->mask, &cleaned_mask);
++
++	while (1) {
++		/* try to deliver a pending signal */
++		if (uk_get_awaited_signal())
++			break;
++
++		/* block, yield */
++		uk_thread_block(uk_thread_current());
++		ptr->wait.status = UK_SIG_WAITING;
++		uk_sched_yield();
++	}
++
++	ptr->wait.status = UK_SIG_NOT_WAITING;
++
++	/* execute handler */
++	uk_execute_handler(ptr->wait.received_signal);
++
++	/* restore mask
++	 *
++	 * We restore the mask here because we are technically done with
++	 * sigsuspend and the mask must be restored at the end of sigsuspend
++	 */
++	uk_sigcopyset(&ptr->mask, &tmp);
++
++	/* execute other pending signals */
++	uk_sig_handle_signals();
++
++	errno = EINTR;
++	return -1; /* always returns -1 and sets errno to EINTR */
++}
++
++int sigwait(const sigset_t *set, int *sig)
++{
++	/*
++	 * If the signals are ignored, this doesn't return <- TODO: POSIX ??
++	 *
++	 * POSIX states that the signals in set must have been blocked before
++	 * calling sigwait, otherwise behavior is undefined -> for us the
++	 * behavior is not caring -> even if the signal is not blocked sigwait
++	 * will still accept it
++	 *
++	 * NOTE: this function is not signal safe
++	 */
++
++	int signals_executed;
++	sigset_t cleaned_set, awaited_save;
++	struct uk_thread_sig *ptr;
++
++	uk_sigcopyset(&cleaned_set, set);
++	uk_sigset_remove_unmaskable(&cleaned_set);
++
++	if (uk_sigisempty(&cleaned_set))
++		return EINVAL;
++
++	ptr = _UK_TH_SIG;
++
++	uk_sigcopyset(&ptr->wait.awaited, &cleaned_set);
++
++	/* save awaited signals */
++	awaited_save = ptr->wait.awaited;
++
++	while (1) {
++		if (uk_get_awaited_signal())
++			break;
++
++		/*
++		 * sigwait allows signals to be received while
++		 * waiting so handle them
++		 */
++		ptr->wait.status = UK_SIG_NOT_WAITING;
++		signals_executed = uk_sig_handle_signals();
++
++		if (signals_executed) {
++			/*
++			 * awaited might be changed by other waiting
++			 * done while handling the signal
++			 */
++			ptr->wait.awaited = awaited_save;
++
++			/*
++			 * we might have raised / received a waiting signal
++			 * while handling the others
++			 */
++			if (uk_get_awaited_signal())
++				break;
++		}
++
++		/* block, yield */
++		uk_thread_block(uk_thread_current());
++		ptr->wait.status = UK_SIG_WAITING;
++		uk_sched_yield();
++	}
++
++	ptr->wait.status = UK_SIG_NOT_WAITING;
++
++	/* do not execute handler, set received signal */
++	*sig = ptr->wait.received_signal.si_signo;
++
++	/* execute other pending signals */
++	uk_sig_handle_signals();
++
++	return 0; /* returns positive errno */
++}
++
++/*
++ * Search for a thread that does not have the signal blocked
++ * If all of the threads have the signal blocked, add it to process
++ * pending signals
++ */
++int kill(pid_t pid, int sig)
++{
++	/*
++	 * POSIX.1 requires that if a process sends a signal to itself, and the
++	 * sending thread does not have the signal blocked, and no other thread
++	 * has it unblocked or is waiting for it in sigwait(3), at least one
++	 * unblocked signal must be delivered to the sending thread before the
++	 * kill() returns.
++	 *
++	 * FIXME: we don't implement this ^
++	 */
++
++	siginfo_t siginfo;
++	struct uk_list_head *i;
++	struct uk_thread_sig *th_sig;
++
++
++	if (pid != 1 && pid != 0 && pid != -1) {
++		errno = ESRCH;
++		return -1;
++	}
++
++	if (!uk_sig_is_valid(sig)) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	/* setup siginfo */
++	uk_sig_init_siginfo(&siginfo, sig);
++
++	uk_list_for_each(i, &uk_proc_sig.thread_sig_list) {
++		th_sig = uk_list_entry(i, struct uk_thread_sig, list_node);
++
++		if (uk_deliver_proc_signal(th_sig, &siginfo) > 0)
++			return 0;
++	}
++
++	/* didn't find any thread that could accept this signal */
++	uk_add_proc_signal(&siginfo);
++
++	return 0;
++}
++
++int raise(int sig)
++{
++	return uk_sig_thread_kill(uk_thread_current(), sig);
++}
+diff --git a/lib/uksignal/sigset.c b/lib/uksignal/sigset.c
+new file mode 100644
+index 0000000..2624e6c
+--- /dev/null
++++ b/lib/uksignal/sigset.c
+@@ -0,0 +1,51 @@
++/* taken from newlib */
++
++#include <errno.h>
++#include <uk/signal.h>
++
++int sigemptyset(sigset_t *set)
++{
++	uk_sigemptyset(set);
++	return 0;
++}
++
++int sigfillset(sigset_t *set)
++{
++	uk_sigfillset(set);
++	return 0;
++}
++
++int sigaddset(sigset_t *set, int signo)
++{
++	if (signo >= NSIG || signo <= 0) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	uk_sigaddset(set, signo);
++	return 0;
++}
++
++int sigdelset(sigset_t *set, int signo)
++{
++	if (signo >= NSIG || signo <= 0) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	uk_sigdelset(set, signo);
++	return 0;
++}
++
++int sigismember(const sigset_t *set, int signo)
++{
++	if (signo >= NSIG || signo <= 0) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	if (uk_sigismember(set, signo))
++		return 1;
++	else
++		return 0;
++}
+diff --git a/lib/uksignal/strsignal.c b/lib/uksignal/strsignal.c
+new file mode 100644
+index 0000000..b672e5f
+--- /dev/null
++++ b/lib/uksignal/strsignal.c
+@@ -0,0 +1,61 @@
++/* taken from newlib */
++
++#include <uk/uk_signal.h>
++
++/*
++ * TODO: not used - delete
++ */
++
++const char *sigstring[] = {
++		"Hangup",
++		"Interrupt",
++		"Quit",
++		"Illegal instruction",
++		"Trace/breakpoint trap",
++		"IOT trap",
++		"EMT trap",
++		"Floating point exception",
++		"Killed",
++		"Bus error",
++		"Segmentation fault",
++		"Bad system call",
++		"Broken pipe",
++		"Alarm clock",
++		"Terminated",
++		"Urgent I/O condition",
++		"Stopped (signal)",
++		"Stopped",
++		"Continued",
++		"Child exited",
++		"Stopped (tty input)",
++		"Stopped (tty output)",
++		"I/O possible",
++		"CPU time limit exceeded",
++		"File size limit exceeded",
++		"Virtual timer expired",
++		"Profiling timer expired",
++		"Window changed",
++		"Resource lost",
++		"User defined signal 1",
++		"User defined signal 2"
++};
++
++char *strsignal(int sig)
++{
++	char *buffer;
++	struct uk_signals_container *ptr;
++
++	ptr = _UK_TH_SIG;
++	buffer = UK_SIG_BUF(ptr);
++
++	/*
++	 * TODO: this assignment doesn't really do anything
++	 * since we return buffer, but newlibc did this
++	 */
++	if (sig <= 0 || sig >= NSIG)
++		*buffer = "Unknown signal";
++	else
++		*buffer = sigstring[sig - 1];
++
++	return buffer;
++}
+diff --git a/lib/uksignal/uk_signal.c b/lib/uksignal/uk_signal.c
+new file mode 100644
+index 0000000..616b8f7
+--- /dev/null
++++ b/lib/uksignal/uk_signal.c
+@@ -0,0 +1,451 @@
++#include <errno.h>
++
++#include <uk/alloc.h>
++#include <uk/print.h>
++#include <uk/signal.h>
++#include <uk/thread.h>
++#include <uk/uk_signal.h>
++
++struct uk_proc_sig uk_proc_sig;
++
++int uk_proc_sig_init(struct uk_proc_sig *sig)
++{
++	int i;
++
++	sigemptyset(&sig->pending);
++
++	for (i = 0; i < NSIG - 1; ++i) {
++		/* TODO: set ign to the ones that should be ign */
++		sig->sigaction[i].sa_handler = SIG_DFL;
++		sigemptyset(&sig->sigaction[i].sa_mask);
++		sig->sigaction[i].sa_flags = 0;
++	}
++
++	UK_INIT_LIST_HEAD(&sig->thread_sig_list);
++	return 0;
++}
++
++int uk_thread_sig_init(struct uk_thread_sig *sig)
++{
++	sigemptyset(&sig->mask);
++
++	sig->wait.status = UK_SIG_NOT_WAITING;
++	sigemptyset(&sig->wait.awaited);
++
++	sigemptyset(&sig->pending);
++	UK_INIT_LIST_HEAD(&sig->pending_signals);
++
++	uk_list_add(&sig->list_node, &uk_proc_sig.thread_sig_list);
++	return 0;
++}
++
++void uk_thread_sig_uninit(struct uk_thread_sig *sig)
++{
++	/* Clear pending signals */
++	struct uk_list_head *i, *tmp;
++	struct uk_signal *signal;
++
++	uk_list_del(&sig->list_node);
++
++	uk_list_for_each_safe(i, tmp, &sig->pending_signals) {
++		signal = uk_list_entry(i, struct uk_signal, list_node);
++
++		uk_list_del(&signal->list_node);
++		uk_free(uk_alloc_get_default(), signal);
++	}
++}
++
++int uk_sig_handle_signals(void)
++{
++	/*
++	 * Do not run pending signals if the thread is waiting
++	 *
++	 * Iterate over pending signals
++	 * Check if the signal is blocked
++	 *
++	 * Before running the handler, remove it from pending
++	 */
++
++	int handled = 0;
++	sigset_t executable, rmask;
++	struct uk_signal *signal;
++	struct uk_thread_sig *ptr;
++
++	ptr = _UK_TH_SIG;
++
++	/*
++	 * handle_sigals will be called from
++	 * the respective waiting function
++	 */
++	if (ptr->wait.status != UK_SIG_NOT_WAITING)
++		return 0;
++
++	/* reverse mask */
++	uk_sigcopyset(&rmask, &ptr->mask);
++	uk_sigreverseset(&rmask);
++
++	/* calculate executable signals */
++	uk_sigcopyset(&executable, &rmask);
++	uk_sigandset(&executable, &ptr->pending);
++
++	while (!uk_sigisempty(&executable)) {
++		signal = uk_list_first_entry(&ptr->pending_signals, struct uk_signal, list_node);
++
++		/* move it last if it's blocked */
++		if (uk_sigismember(&ptr->mask, signal->info.si_signo)) {
++			uk_list_del(&signal->list_node);
++			uk_list_add_tail(&signal->list_node, &ptr->pending_signals);
++			continue;
++		}
++
++		/* remove from the list */
++		uk_list_del(&signal->list_node);
++
++		/* clear pending status */
++		uk_sigdelset(&ptr->pending, signal->info.si_signo);
++
++		/* execute */
++		uk_execute_handler(signal->info);
++
++		uk_free(uk_alloc_get_default(), signal);
++		handled++;
++
++		/* calculate executable signals */
++		uk_sigcopyset(&executable, &rmask);
++		uk_sigandset(&executable, &ptr->pending);
++	}
++
++	return handled;
++}
++
++/*
++ * returns:
++ *  >0 - on success
++ *  0  - if signal is ignored / already pending
++ *  <0 - on failure
++ */
++static int
++uk_deliver_signal_unmasked(struct uk_thread_sig *th_sig, siginfo_t *sig)
++{
++	struct uk_thread *tid;
++	struct uk_signal *uk_sig;
++
++	/* If the signal is ignored, we don't deliver it */
++	if (is_sig_ign(&uk_proc_sig.sigaction[sig->si_signo - 1]))
++		return 0;
++
++	/* If it is already pending, we don't deliver it */
++	if (uk_sigismember(&th_sig->pending, sig->si_signo))
++		return 0;
++
++	uk_sig = uk_malloc(uk_alloc_get_default(), sizeof(*uk_sig));
++	if (!uk_sig) {
++		uk_pr_warn("Could not allocate uk_signal");
++		return -ENOMEM;
++	}
++
++	uk_sig->info = *sig;
++	uk_list_add(&uk_sig->list_node, &th_sig->pending_signals);
++
++	uk_sigaddset(&th_sig->pending, sig->si_signo);
++
++	/* check if we need to wake the thread */
++	if (th_sig->wait.status != UK_SIG_NOT_WAITING &&
++			th_sig->wait.status != UK_SIG_WAITING_SCHED) {
++		th_sig->wait.status = UK_SIG_WAITING_SCHED;
++
++		tid = __containerof(th_sig, struct uk_thread, signals_container);
++		uk_thread_wake(tid);
++	}
++
++	return 1;
++}
++
++int uk_sig_thread_kill(struct uk_thread *tid, int sig)
++{
++	siginfo_t siginfo;
++	struct uk_signal *signal;
++	struct uk_thread_sig *ptr;
++
++	if (!uk_sig_is_valid(sig)) {
++		errno = EINVAL;
++		return -1;
++	}
++
++	ptr = &tid->signals_container;
++
++	/* setup siginfo */
++	uk_sig_init_siginfo(&siginfo, sig);
++
++	/* check if we are sending this to ourself */
++	if (&tid->signals_container == _UK_TH_SIG) {
++		/* if it's not masked just run it */
++		if (!uk_sigismember(&ptr->mask, sig)) {
++			/* remove the signal from pending */
++			signal = uk_sig_th_get_pending(ptr, sig);
++
++			if (signal) {
++				uk_list_del(&signal->list_node);
++				uk_sigdelset(&ptr->pending, sig);
++				uk_free(uk_alloc_get_default(), signal);
++			}
++
++			uk_execute_handler(siginfo);
++			return 0;
++		}
++	}
++
++	uk_deliver_signal_unmasked(ptr, &siginfo);
++
++	return 0;
++}
++
++/*
++ * Used to deliver pending signals after a mask change
++ *
++ * Since mask doesn't affect the deliverance of signals
++ * directed to threads (this is handled by uk_sig_handle_signals),
++ * we are trying to deliver only pending process signals
++ */
++static inline void uk_deliver_signals_maskchange(void)
++{
++	int i, ret;
++	sigset_t to_send;
++	struct uk_thread_sig *ptr;
++
++	ptr = _UK_TH_SIG;
++
++	uk_sigcopyset(&to_send, &ptr->mask);
++	uk_sigandset(&to_send, &uk_proc_sig.pending);
++
++	for (i = 1; i < NSIG; ++i) {
++		if (uk_sigisempty(&to_send))
++			break;
++
++		if (uk_sigismember(&to_send, i)) {
++			ret = uk_deliver_proc_signal(ptr,
++					&uk_proc_sig.pending_signals[i - 1]);
++
++			if (ret > 0) {
++				uk_remove_proc_signal(i);
++				uk_sigdelset(&to_send, i);
++			}
++		}
++	}
++}
++
++/*
++ * TODO: if we add rt sig, don't allow the
++ * two real-time sig that are used internally by the NPTL
++ * threading implementation. Also for all the functions - ignore
++ * those signals silently
++ */
++int uk_thread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
++{
++	/*
++	 * running this inside a handler has no effect outside the handler
++	 * since the mask is restored in execute_handler
++	 */
++
++	sigset_t *mask, tmp;
++	struct uk_thread_sig *ptr;
++
++	ptr = _UK_TH_SIG;
++	mask = &(ptr->mask);
++
++	if (oldset)
++		*oldset = *mask;
++
++	if (set) {
++		switch (how) {
++		case SIG_BLOCK:
++			uk_sigorset(mask, set);
++			break;
++		case SIG_UNBLOCK:
++			uk_sigcopyset(&tmp, set);
++			uk_sigreverseset(&tmp);
++			uk_sigandset(mask, set);
++			break;
++		case SIG_SETMASK:
++			uk_sigcopyset(mask, set);
++			break;
++		default:
++			errno = EINVAL;
++			return -1;
++		}
++
++		uk_sigset_remove_unmaskable(mask);
++
++		/* Changed the mask, see if we can deliver any pending signals */
++		uk_deliver_signals_maskchange();
++
++		uk_sig_handle_signals();
++	}
++
++	return 0;
++}
++
++struct uk_thread_sig *uk_crr_thread_sig_container(void)
++{
++	return &(uk_thread_current()->signals_container);
++}
++
++void uk_sig_init_siginfo(siginfo_t *siginfo, int sig)
++{
++	siginfo->si_signo = sig;
++
++	/* TODO: add codes; get pid from getpid() */
++	siginfo->si_code = 0;
++	siginfo->si_pid = 1;
++}
++
++/* returns the uk_signal for sig if it is pending on thread */
++struct uk_signal *uk_sig_th_get_pending(struct uk_thread_sig *th_sig, int sig)
++{
++	struct uk_list_head *i;
++	struct uk_signal *signal;
++
++	if (!uk_sigismember(&th_sig->pending, sig))
++		return NULL;
++
++	uk_list_for_each(i, &th_sig->pending_signals) {
++		signal = uk_list_entry(i, struct uk_signal, list_node);
++
++		if (signal->info.si_signo == sig)
++			return signal;
++	}
++
++	/* NOT REACHED */
++	return NULL;
++}
++
++/* returns the siginfo for sig if it is pending on proc */
++siginfo_t *uk_sig_proc_get_pending(int sig)
++{
++	if (!uk_sigismember(&uk_proc_sig.pending, sig))
++		return NULL;
++
++	return &uk_proc_sig.pending_signals[sig - 1];
++}
++
++/*
++ * returns the uk_signal for a signal from the given
++ * set if it is pending on thread
++ */
++struct uk_signal *
++uk_sig_th_get_pending_any(struct uk_thread_sig *th_sig, sigset_t set)
++{
++	sigset_t common;
++	struct uk_list_head *i;
++	struct uk_signal *signal;
++
++	uk_sigcopyset(&common, &th_sig->pending);
++	uk_sigandset(&common, &set);
++
++	if (uk_sigisempty(&common))
++		return NULL;
++
++	uk_list_for_each(i, &th_sig->pending_signals) {
++		signal = uk_list_entry(i, struct uk_signal, list_node);
++
++		if (uk_sigismember(&common, signal->info.si_signo))
++			return signal;
++	}
++
++	/* NOT REACHED */
++	return NULL;
++}
++
++/*
++ * returns the siginfo for a signal from the given
++ * set if it is pending on proc
++ */
++siginfo_t *uk_sig_proc_get_pending_any(sigset_t set)
++{
++	int sig;
++	sigset_t common;
++
++	uk_sigcopyset(&common, &uk_proc_sig.pending);
++	uk_sigandset(&common, &set);
++
++	if (uk_sigisempty(&common))
++		return NULL;
++
++	for (sig = 1; sig < NSIG; ++sig)
++		if (uk_sigismember(&common, sig))
++			return &uk_proc_sig.pending_signals[sig - 1];
++
++	/* NOT REACHED */
++	return NULL;
++}
++
++/*
++ * returns:
++ *  >0 - on success
++ *  0  - if signal is blocked / ignored / already pending
++ *  <0 - on failure
++ */
++int
++uk_deliver_proc_signal(struct uk_thread_sig *th_sig, siginfo_t *sig)
++{
++	if (uk_sigismember(&th_sig->mask, sig->si_signo))
++		return 0;
++
++	return uk_deliver_signal_unmasked(th_sig, sig);
++}
++
++void uk_execute_handler(siginfo_t sig)
++{
++	/*
++	 * We save siginfo locally since it might change
++	 * while the handler is runnnig
++	 * For example, if we execute a waiting function inside
++	 * the handler and we were already inside a waiting function
++	 */
++
++	sigset_t tmp;
++	struct sigaction *act;
++	struct uk_thread_sig *ptr;
++
++	act = &uk_proc_sig.sigaction[sig.si_signo - 1];
++
++	/*
++	 * Check if the signal is ignored
++	 *
++	 * This should never happen since
++	 * we never deliver ignored signals
++	 */
++	if (is_sig_ign(act)) {
++		uk_pr_debug("Ignored signal %d\n",
++				sig.si_signo);
++		ukplat_crash();
++	}
++
++	/* our default handler is shutdown */
++	if (is_sig_dfl(act)) {
++		uk_pr_debug("Uncaught signal %d. Powering off.\n",
++				sig.si_signo);
++		ukplat_crash();
++	}
++
++	ptr = _UK_TH_SIG;
++
++	/* change the mask */
++	uk_sigcopyset(&tmp, &ptr->mask);
++	uk_sigorset(&ptr->mask, &act->sa_mask);
++
++	/* run the handler */
++	if (act->sa_flags & SA_SIGINFO)
++		act->sa_sigaction(sig.si_signo, &sig, NULL);
++	else
++		act->sa_handler(sig.si_signo);
++
++	/* check if we need to reset handler */
++	if (act->sa_flags & SA_RESETHAND) {
++		act->sa_flags = 0;
++		act->sa_handler = SIG_DFL;
++	}
++
++	/* restore the mask */
++	uk_sigcopyset(&ptr->mask, &tmp);
++}
+diff --git a/plat/common/x86/thread_start.S b/plat/common/x86/thread_start.S
+index 360ca91..a24de0f 100644
+--- a/plat/common/x86/thread_start.S
++++ b/plat/common/x86/thread_start.S
+@@ -26,6 +26,7 @@
+  */
+ /* Taken from Mini-OS arch/x86/x86_64.S */
+ 
++#include <uk/config.h>
+ #include <uk/plat/common/sw_ctx.h>
+ 
+ #define ENTRY(X) .globl X ; X :
+@@ -55,6 +56,12 @@ ENTRY(asm_sw_ctx_switch)
+ 	lea .Lreturn(%rip), %rbx
+ 	movq %rbx, OFFSETOF_SW_CTX_IP(%rdi)       /* save EIP */
+ 	pushq OFFSETOF_SW_CTX_IP(%rsi)            /* restore EIP */
++
++#if CONFIG_LIBUKSIGNAL
++	/* TODO: do we need to save regs? (e.g fpu) */
++	/* stack is aligned here */
++	call uk_sig_handle_signals
++#endif
+ 	ret
+ .Lreturn:
+ 	popq %r15
+-- 
+2.25.1
+

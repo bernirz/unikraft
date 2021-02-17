@@ -1,0 +1,143 @@
+From a61e50e5d7a84355a08162f211fc062b01c30cd0 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 17 Feb 2021 02:32:08 +0100
+Subject: [UNIKRAFT/LIBMUSL] libmusl-change-for-uksignal
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ Makefile.uk             |  7 ++++++-
+ Makefile.uk.musl.signal | 40 +++++++++++++++++++++-------------------
+ Makefile.uk.musl.string |  2 ++
+ Makefile.uk.musl.unistd |  4 ++--
+ 4 files changed, 31 insertions(+), 22 deletions(-)
+
+diff --git a/Makefile.uk b/Makefile.uk
+index 7afb9f7..bdce10a 100644
+--- a/Makefile.uk
++++ b/Makefile.uk
+@@ -75,12 +75,17 @@ CXXINCLUDES-y  += $(LIBMUSL_GLOBAL_INCLUDES-y)
+ ################################################################################
+ # Musl-specific Targets
+ ################################################################################
++ifeq ($(CONFIG_LIBUKSIGNAL),y)
++ALLTYPES_INCLUDE=alltypes_uk.h.in
++else 
++ALLTYPES_INCLUDE=alltypes.h.in
++endif
+ # generate alltypes.h through musl sed script
+ $(LIBMUSL)/arch/$(ARCH)/bits/alltypes.h: $(LIBMUSL_BUILD)/.patched
+ 	$(call verbose_cmd,CONFIGURE,libmusl: $(notdir $@),\
+ 		sed -f $(LIBMUSL)/tools/mkalltypes.sed \
+ 		$(LIBMUSL)/arch/$(ARCH)/bits/alltypes.h.in \
+-		$(LIBMUSL)/include/alltypes.h.in > $@ && \
++		$(LIBMUSL)/include/$(ALLTYPES_INCLUDE) > $@ && \
+ 		$(TOUCH) $@)
+ 
+ # generate version.h
+diff --git a/Makefile.uk.musl.signal b/Makefile.uk.musl.signal
+index a7af11f..0adfae0 100644
+--- a/Makefile.uk.musl.signal
++++ b/Makefile.uk.musl.signal
+@@ -21,32 +21,36 @@ else ifeq (x86_64,$(ARCH))
+ LIBMUSL_SIGNAL_HDRS-y += $(LIBMUSL)/arch/x86_64/bits/signal.h
+ endif
+ 
++ifneq ($CONFIG_LIBUKSIGNAL),y)
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/kill.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/raise.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaddset.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigandset.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigdelset.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigemptyset.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigfillset.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigismember.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/signal.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigpending.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigprocmask.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigsuspend.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigwait.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaction.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/psiginfo.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/psignal.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaltstack.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/siginterrupt.c
++#LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/killpg.c
++endif
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/block.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/getitimer.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/kill.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/killpg.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/psiginfo.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/psignal.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/raise.c
+ #LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/setitimer.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaction.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaddset.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigaltstack.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigandset.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigdelset.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigemptyset.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigfillset.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sighold.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigignore.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/siginterrupt.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigisemptyset.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigismember.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/siglongjmp.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/signal.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigorset.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigpause.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigpending.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigprocmask.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigqueue.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigrelse.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigrtmax.c
+@@ -54,9 +58,7 @@ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigrtmin.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigset.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigsetjmp.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigsetjmp_tail.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigsuspend.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigtimedwait.c
+-LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigwait.c
+ LIBMUSL_SIGNAL_SRCS-y += $(LIBMUSL)/src/signal/sigwaitinfo.c
+ 
+ ifeq (x86_32,$(CONFIG_UK_ARCH))
+diff --git a/Makefile.uk.musl.string b/Makefile.uk.musl.string
+index 45316b4..372c02c 100644
+--- a/Makefile.uk.musl.string
++++ b/Makefile.uk.musl.string
+@@ -48,7 +48,9 @@ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strnlen.c
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strpbrk.c
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strrchr.c
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strsep.c
++ifneq ($(CONFIG_LIBUKSIGNAL),y)
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strsignal.c
++endif
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strspn.c
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strstr.c
+ LIBMUSL_STRING_SRCS-y += $(LIBMUSL)/src/string/strtok.c
+diff --git a/Makefile.uk.musl.unistd b/Makefile.uk.musl.unistd
+index 4a4a090..352c063 100644
+--- a/Makefile.uk.musl.unistd
++++ b/Makefile.uk.musl.unistd
+@@ -22,7 +22,7 @@ LIBMUSL_UNISTD_HDRS-y += $(LIBMUSL)/include/unistd.h
+ LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/_exit.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/access.c
+ LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/acct.c
+-LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/alarm.c
++#LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/alarm.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/chdir.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/chown.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/close.c
+@@ -63,7 +63,7 @@ LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/isatty.c
+ LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/linkat.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/lseek.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/nice.c
+-LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/pause.c
++#LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/pause.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/pipe.c
+ #LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/pipe2.c
+ LIBMUSL_UNISTD_SRCS-y += $(LIBMUSL)/src/unistd/posix_close.c
+-- 
+2.25.1
+

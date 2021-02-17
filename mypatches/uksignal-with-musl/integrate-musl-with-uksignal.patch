@@ -1,0 +1,376 @@
+From ff8505069f8ed5c319f8c47b104e33fbf74ef204 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 17 Feb 2021 02:11:49 +0100
+Subject: [UNIKRAFT/LIBMUSL] uksignal support for musl
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ arch/x86_64/bits/signal.h    |  2 +-
+ include/alltypes_uk.h.in     | 75 ++++++++++++++++++++++++++++++++++++
+ include/signal.h             | 16 ++++++++
+ src/aio/aio.c                |  4 +-
+ src/aio/lio_listio.c         |  6 ++-
+ src/internal/pthread_impl.h  |  4 ++
+ src/mq/mq_notify.c           |  1 +
+ src/process/posix_spawn.c    | 10 +++++
+ src/signal/sigaction.c       |  4 ++
+ src/signal/sigqueue.c        |  2 +
+ src/thread/pthread_cancel.c  |  8 ++++
+ src/thread/pthread_sigmask.c |  4 ++
+ src/thread/synccall.c        |  8 ++++
+ 13 files changed, 140 insertions(+), 4 deletions(-)
+ create mode 100644 include/alltypes_uk.h.in
+
+diff --git a/arch/x86_64/bits/signal.h b/arch/x86_64/bits/signal.h
+index c99317d..54746eb 100644
+--- a/arch/x86_64/bits/signal.h
++++ b/arch/x86_64/bits/signal.h
+@@ -149,5 +149,5 @@ typedef struct __ucontext {
+ #define SIGSYS    31
+ #define SIGUNUSED SIGSYS
+ 
+-#define _NSIG 65
++#define _NSIG 32
+ 
+diff --git a/include/alltypes_uk.h.in b/include/alltypes_uk.h.in
+new file mode 100644
+index 0000000..475526e
+--- /dev/null
++++ b/include/alltypes_uk.h.in
+@@ -0,0 +1,75 @@
++TYPEDEF unsigned _Addr size_t;
++TYPEDEF unsigned _Addr uintptr_t;
++TYPEDEF _Addr ptrdiff_t;
++TYPEDEF _Addr ssize_t;
++TYPEDEF _Addr intptr_t;
++TYPEDEF _Addr regoff_t;
++TYPEDEF _Reg register_t;
++
++TYPEDEF signed char     int8_t;
++TYPEDEF short           int16_t;
++TYPEDEF int             int32_t;
++TYPEDEF _Int64          int64_t;
++TYPEDEF _Int64          intmax_t;
++TYPEDEF unsigned char   uint8_t;
++TYPEDEF unsigned short  uint16_t;
++TYPEDEF unsigned int    uint32_t;
++TYPEDEF unsigned _Int64 uint64_t;
++TYPEDEF unsigned _Int64 u_int64_t;
++TYPEDEF unsigned _Int64 uintmax_t;
++
++TYPEDEF unsigned mode_t;
++TYPEDEF unsigned _Reg nlink_t;
++TYPEDEF _Int64 off_t;
++TYPEDEF unsigned _Int64 ino_t;
++TYPEDEF unsigned _Int64 dev_t;
++TYPEDEF long blksize_t;
++TYPEDEF _Int64 blkcnt_t;
++TYPEDEF unsigned _Int64 fsblkcnt_t;
++TYPEDEF unsigned _Int64 fsfilcnt_t;
++
++TYPEDEF unsigned wint_t;
++TYPEDEF unsigned long wctype_t;
++
++TYPEDEF void * timer_t;
++TYPEDEF int clockid_t;
++TYPEDEF long clock_t;
++STRUCT timeval { time_t tv_sec; suseconds_t tv_usec; };
++STRUCT timespec { time_t tv_sec; long tv_nsec; };
++
++TYPEDEF int pid_t;
++TYPEDEF unsigned id_t;
++TYPEDEF unsigned uid_t;
++TYPEDEF unsigned gid_t;
++TYPEDEF int key_t;
++TYPEDEF unsigned useconds_t;
++
++#ifdef __cplusplus
++TYPEDEF unsigned long pthread_t;
++#else
++TYPEDEF struct __pthread * pthread_t;
++#endif
++TYPEDEF int pthread_once_t;
++TYPEDEF unsigned pthread_key_t;
++TYPEDEF int pthread_spinlock_t;
++TYPEDEF struct { unsigned __attr; } pthread_mutexattr_t;
++TYPEDEF struct { unsigned __attr; } pthread_condattr_t;
++TYPEDEF struct { unsigned __attr; } pthread_barrierattr_t;
++TYPEDEF struct { unsigned __attr[2]; } pthread_rwlockattr_t;
++
++TYPEDEF struct _IO_FILE FILE;
++
++TYPEDEF struct __mbstate_t { unsigned __opaque1, __opaque2; } mbstate_t;
++
++TYPEDEF struct __locale_struct * locale_t;
++
++TYPEDEF unsigned long sigset_t;
++
++STRUCT iovec { void *iov_base; size_t iov_len; };
++
++TYPEDEF unsigned socklen_t;
++TYPEDEF unsigned short sa_family_t;
++
++#undef _Addr
++#undef _Int64
++#undef _Reg
+diff --git a/include/signal.h b/include/signal.h
+index 2c8b3d5..fc0f0d0 100644
+--- a/include/signal.h
++++ b/include/signal.h
+@@ -1,6 +1,18 @@
+ #ifndef _SIGNAL_H
+ #define _SIGNAL_H
+ 
++#ifdef CONFIG_LIBUKSIGNAL
++#define is_sig_dfl(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_DFL)
++
++#define is_sig_ign(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_IGN)
++typedef void (*sighandler_t)(int);
++sighandler_t signal(int signum, sighandler_t handler);
++typedef int pid_t;
++typedef int sig_atomic_t;
++#endif
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -228,7 +240,9 @@ int sigignore(int);
+ int siginterrupt(int, int);
+ int sigpause(int);
+ int sigrelse(int);
++#ifndef CONFIG_LIBUKSIGNAL
+ void (*sigset(int, void (*)(int)))(int);
++#endif
+ #define TRAP_BRKPT 1
+ #define TRAP_TRACE 2
+ #define POLL_IN 1
+@@ -265,7 +279,9 @@ int sigandset(sigset_t *, const sigset_t *, const sigset_t *);
+ 
+ typedef int sig_atomic_t;
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ void (*signal(int, void (*)(int)))(int);
++#endif
+ int raise(int);
+ 
+ #ifdef __cplusplus
+diff --git a/src/aio/aio.c b/src/aio/aio.c
+index aafd8e8..fae2aa4 100644
+--- a/src/aio/aio.c
++++ b/src/aio/aio.c
+@@ -171,10 +171,12 @@ static void cleanup(void *ctx)
+ 	if (sev.sigev_notify == SIGEV_SIGNAL) {
+ 		siginfo_t si = {
+ 			.si_signo = sev.sigev_signo,
+-			.si_value = sev.sigev_value,
+ 			.si_code = SI_ASYNCIO,
+ 			.si_pid = getpid(),
++#ifndef CONFIG_LIBUKSIGNAL
+ 			.si_uid = getuid()
++			.si_value = sev.sigev_value,
++#endif
+ 		};
+ 		__syscall(SYS_rt_sigqueueinfo, si.si_pid, si.si_signo, &si);
+ 	}
+diff --git a/src/aio/lio_listio.c b/src/aio/lio_listio.c
+index bd37767..4b1fd12 100644
+--- a/src/aio/lio_listio.c
++++ b/src/aio/lio_listio.c
+@@ -42,10 +42,12 @@ static void notify_signal(struct sigevent *sev)
+ {
+ 	siginfo_t si = {
+ 		.si_signo = sev->sigev_signo,
+-		.si_value = sev->sigev_value,
+ 		.si_code = SI_ASYNCIO,
+ 		.si_pid = getpid(),
+-		.si_uid = getuid()
++#ifndef CONFIG_LIBUKSIGNAL
++		.si_uid = getuid(),
++		.si_value = sev.sigev_value,
++#endif
+ 	};
+ 	__syscall(SYS_rt_sigqueueinfo, si.si_pid, si.si_signo, &si);
+ }
+diff --git a/src/internal/pthread_impl.h b/src/internal/pthread_impl.h
+index f6a4f2c..cd3eb35 100644
+--- a/src/internal/pthread_impl.h
++++ b/src/internal/pthread_impl.h
+@@ -114,9 +114,13 @@ struct __timer {
+ #define SIGSYNCCALL 34
+ 
+ #define SIGALL_SET ((sigset_t *)(const unsigned long long [2]){ -1,-1 })
++#ifdef CONFIG_LIBUKSIGNAL
++#define SIGPT_SET 1 //FIXME 
++#else
+ #define SIGPT_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	[sizeof(long)==4] = 3UL<<(32*(sizeof(long)>4)) })
++#endif
+ #define SIGTIMER_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	 0x80000000 })
+diff --git a/src/mq/mq_notify.c b/src/mq/mq_notify.c
+index 221591c..c7d78e5 100644
+--- a/src/mq/mq_notify.c
++++ b/src/mq/mq_notify.c
+@@ -45,6 +45,7 @@ int mq_notify(mqd_t mqd, const struct sigevent *sev)
+ 	if (s < 0) return -1;
+ 	args.sock = s;
+ 
++
+ 	if (sev->sigev_notify_attributes) attr = *sev->sigev_notify_attributes;
+ 	else pthread_attr_init(&attr);
+ 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+diff --git a/src/process/posix_spawn.c b/src/process/posix_spawn.c
+index 93fb155..249bdf2 100644
+--- a/src/process/posix_spawn.c
++++ b/src/process/posix_spawn.c
+@@ -49,7 +49,9 @@ static int child(void *args_vp)
+ 	 * memory, with unpredictable and dangerous results. To
+ 	 * reduce overhead, sigaction has tracked for us which signals
+ 	 * potentially have a signal handler. */
++#ifndef CONFIG_LIBUKSIGNAL
+ 	__get_handler_set(&hset);
++#endif
+ 	for (i=1; i<_NSIG; i++) {
+ 		if ((attr->__flags & POSIX_SPAWN_SETSIGDEF)
+ 		     && sigismember(&attr->__def, i)) {
+@@ -58,14 +60,22 @@ static int child(void *args_vp)
+ 			if (i-32<3U) {
+ 				sa.sa_handler = SIG_IGN;
+ 			} else {
++#if CONFIG_LIBUKSIGNAL
++				sigaction(i, 0, &sa);
++#else
+ 				__libc_sigaction(i, 0, &sa);
++#endif
+ 				if (sa.sa_handler==SIG_IGN) continue;
+ 				sa.sa_handler = SIG_DFL;
+ 			}
+ 		} else {
+ 			continue;
+ 		}
++#if CONFIG_LIBUKSIGNAL
++		sigaction(i, &sa, 0);
++#else
+ 		__libc_sigaction(i, &sa, 0);
++#endif
+ 	}
+ 
+ 	if (attr->__flags & POSIX_SPAWN_SETSID)
+diff --git a/src/signal/sigaction.c b/src/signal/sigaction.c
+index 6eca06f..d2ec4f9 100644
+--- a/src/signal/sigaction.c
++++ b/src/signal/sigaction.c
+@@ -6,6 +6,8 @@
+ #include "libc.h"
+ #include "ksigaction.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
++
+ static int unmask_done;
+ static unsigned long handler_set[_NSIG/(8*sizeof(long))];
+ 
+@@ -61,3 +63,5 @@ int __sigaction(int sig, const struct sigaction *restrict sa, struct sigaction *
+ }
+ 
+ weak_alias(__sigaction, sigaction);
++
++#endif
+diff --git a/src/signal/sigqueue.c b/src/signal/sigqueue.c
+index b75f0c5..15d0875 100644
+--- a/src/signal/sigqueue.c
++++ b/src/signal/sigqueue.c
+@@ -12,8 +12,10 @@ int sigqueue(pid_t pid, int sig, const union sigval value)
+ 	memset(&si, 0, sizeof si);
+ 	si.si_signo = sig;
+ 	si.si_code = SI_QUEUE;
++#ifndef CONFIG_LIBUKSIGNAL
+ 	si.si_value = value;
+ 	si.si_uid = getuid();
++#endif
+ 	__block_app_sigs(&set);
+ 	si.si_pid = getpid();
+ 	r = syscall(SYS_rt_sigqueueinfo, pid, sig, &si);
+diff --git a/src/thread/pthread_cancel.c b/src/thread/pthread_cancel.c
+index 3d22922..5f431f6 100644
+--- a/src/thread/pthread_cancel.c
++++ b/src/thread/pthread_cancel.c
+@@ -41,8 +41,12 @@ long __syscall_cp_c(syscall_arg_t nr,
+ 
+ static void _sigaddset(sigset_t *set, int sig)
+ {
++#ifdef CONFIG_LIBUKSIGNAL
++	sigaddset(set, sig);
++#else
+ 	unsigned s = sig-1;
+ 	set->__bits[s/8/sizeof *set->__bits] |= 1UL<<(s&8*sizeof *set->__bits-1);
++#endif
+ }
+ 
+ __attribute__((__visibility__("hidden")))
+@@ -81,7 +85,11 @@ static void init_cancellation()
+ 		.sa_sigaction = cancel_handler
+ 	};
+ 	memset(&sa.sa_mask, -1, _NSIG/8);
++#ifdef CONFIG_LIBUKSIGNAL
++	sigaction(SIGCANCEL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGCANCEL, &sa, 0);
++#endif
+ }
+ 
+ int pthread_cancel(pthread_t t)
+diff --git a/src/thread/pthread_sigmask.c b/src/thread/pthread_sigmask.c
+index 88c333f..80c6b7e 100644
+--- a/src/thread/pthread_sigmask.c
++++ b/src/thread/pthread_sigmask.c
+@@ -4,6 +4,9 @@
+ 
+ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict old)
+ {
++#ifdef CONFIG_LIBUKSIGNAL
++	return uk_thread_sigmask(how, set, old);
++#else
+ 	int ret;
+ 	if ((unsigned)how - SIG_BLOCK > 2U) return EINVAL;
+ 	ret = -__syscall(SYS_rt_sigprocmask, how, set, old, _NSIG/8);
+@@ -16,4 +19,5 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict ol
+ 		}
+ 	}
+ 	return ret;
++#endif
+ }
+diff --git a/src/thread/synccall.c b/src/thread/synccall.c
+index ba2f258..d862d20 100644
+--- a/src/thread/synccall.c
++++ b/src/thread/synccall.c
+@@ -82,7 +82,11 @@ void __synccall(void (*func)(void *), void *ctx)
+ 	 * interrupts the SIGSYNCCALL handlers. The main possible source
+ 	 * of trouble is asynchronous cancellation. */
+ 	memset(&sa.sa_mask, -1, sizeof sa.sa_mask);
++#if CONFIG_LIBUKSIGNAL
++	sigaction(SIGSYNCCALL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGSYNCCALL, &sa, 0);
++#endif
+ 
+ 	pid = __syscall(SYS_getpid);
+ 	self = __syscall(SYS_gettid);
+@@ -156,7 +160,11 @@ void __synccall(void (*func)(void *), void *ctx)
+ 	}
+ 
+ 	sa.sa_handler = SIG_IGN;
++#if CONFIG_LIBUKSIGNAL
++	sigaction(SIGSYNCCALL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGSYNCCALL, &sa, 0);
++#endif
+ 
+ single_threaded:
+ 	func(ctx);
+-- 
+2.25.1
+

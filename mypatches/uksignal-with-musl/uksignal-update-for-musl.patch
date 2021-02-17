@@ -1,0 +1,26 @@
+From b915bb752d866401d08e8a86f20a017a196843bb Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 17 Feb 2021 02:20:26 +0100
+Subject: [UNIKRAFT/LIBUKSIGNAL] uksignal for musl
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ lib/uksignal/include/uk/bits/sigset.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/lib/uksignal/include/uk/bits/sigset.h b/lib/uksignal/include/uk/bits/sigset.h
+index 6d94573..8f92cfb 100644
+--- a/lib/uksignal/include/uk/bits/sigset.h
++++ b/lib/uksignal/include/uk/bits/sigset.h
+@@ -44,7 +44,7 @@ extern "C" {
+ /* TODO: do we have gnu statement expression?  */
+ /* internal use */
+ #define uk_sigemptyset(ptr)	(*(ptr) = 0)
+-#define uk_sigfillset(ptr)  (*(ptr) = ~((__sigset_t) 0))
++#define uk_sigfillset(ptr)  (*(ptr) = ~((unsigned long) 0))
+ #define uk_sigaddset(ptr, signo) (*(ptr) |= (1 << ((signo) - 1)))
+ #define uk_sigdelset(ptr, signo) (*(ptr) &= ~(1 << ((signo) - 1)))
+ #define uk_sigcopyset(ptr1, ptr2) (*(ptr1) = *(ptr2))
+-- 
+2.25.1
+
