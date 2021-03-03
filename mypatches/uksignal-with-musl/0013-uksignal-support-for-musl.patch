@@ -1,0 +1,526 @@
+From 222ee8b6620f6c8f80e47f75309b66f5c2cbb868 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Tue, 2 Mar 2021 23:39:43 +0100
+Subject: [UNIKRAFT/LIBMUSL] patches for musl -- uksignal
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ arch/x86_64/bits/signal.h    |  2 +-
+ include/signal.h             | 14 ++++++++++++++
+ src/internal/pthread_impl.h  |  4 ++++
+ src/signal/kill.c            |  2 ++
+ src/signal/killpg.c          |  2 ++
+ src/signal/raise.c           |  2 ++
+ src/signal/sigaction.c       |  7 +++++++
+ src/signal/sigaddset.c       |  2 ++
+ src/signal/sigaltstack.c     |  2 ++
+ src/signal/sigandset.c       |  4 +++-
+ src/signal/sigdelset.c       |  2 ++
+ src/signal/sigemptyset.c     |  2 ++
+ src/signal/sigfillset.c      |  2 ++
+ src/signal/siginterrupt.c    |  2 ++
+ src/signal/sigisemptyset.c   |  2 ++
+ src/signal/sigismember.c     |  2 ++
+ src/signal/signal.c          |  2 ++
+ src/signal/sigpending.c      |  2 ++
+ src/signal/sigprocmask.c     |  2 ++
+ src/signal/sigqueue.c        |  2 ++
+ src/signal/sigsuspend.c      |  2 ++
+ src/signal/sigwait.c         |  2 ++
+ src/thread/pthread_cancel.c  |  8 ++++++++
+ src/thread/pthread_sigmask.c |  4 ++++
+ src/thread/synccall.c        |  8 ++++++++
+ src/unistd/alarm.c           |  2 ++
+ src/unistd/pause.c           |  2 ++
+ 27 files changed, 87 insertions(+), 2 deletions(-)
+
+diff --git a/arch/x86_64/bits/signal.h b/arch/x86_64/bits/signal.h
+index c99317d..54746eb 100644
+--- a/arch/x86_64/bits/signal.h
++++ b/arch/x86_64/bits/signal.h
+@@ -149,5 +149,5 @@ typedef struct __ucontext {
+ #define SIGSYS    31
+ #define SIGUNUSED SIGSYS
+ 
+-#define _NSIG 65
++#define _NSIG 32
+ 
+diff --git a/include/signal.h b/include/signal.h
+index 2c8b3d5..70af8e6 100644
+--- a/include/signal.h
++++ b/include/signal.h
+@@ -1,6 +1,20 @@
+ #ifndef _SIGNAL_H
+ #define _SIGNAL_H
+ 
++#include <uk/config.h> // force inclusion of CONFIG_LIBUKSIGNAL if it is defined
++
++#ifdef CONFIG_LIBUKSIGNAL
++#define is_sig_dfl(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_DFL)
++
++#define is_sig_ign(ptr)	\
++	(!((ptr)->sa_flags & SA_SIGINFO) && (ptr)->sa_handler == SIG_IGN)
++typedef void (*sighandler_t)(int);
++sighandler_t signal(int signum, sighandler_t handler);
++typedef int pid_t;
++typedef int sig_atomic_t;
++#endif
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+diff --git a/src/internal/pthread_impl.h b/src/internal/pthread_impl.h
+index f6a4f2c..cd3eb35 100644
+--- a/src/internal/pthread_impl.h
++++ b/src/internal/pthread_impl.h
+@@ -114,9 +114,13 @@ struct __timer {
+ #define SIGSYNCCALL 34
+ 
+ #define SIGALL_SET ((sigset_t *)(const unsigned long long [2]){ -1,-1 })
++#ifdef CONFIG_LIBUKSIGNAL
++#define SIGPT_SET 1 //FIXME 
++#else
+ #define SIGPT_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	[sizeof(long)==4] = 3UL<<(32*(sizeof(long)>4)) })
++#endif
+ #define SIGTIMER_SET \
+ 	((sigset_t *)(const unsigned long [_NSIG/8/sizeof(long)]){ \
+ 	 0x80000000 })
+diff --git a/src/signal/kill.c b/src/signal/kill.c
+index 0580573..0aa5ffb 100644
+--- a/src/signal/kill.c
++++ b/src/signal/kill.c
+@@ -1,7 +1,9 @@
+ #include <signal.h>
+ #include "syscall.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int kill(pid_t pid, int sig)
+ {
+ 	return syscall(SYS_kill, pid, sig);
+ }
++#endif
+diff --git a/src/signal/killpg.c b/src/signal/killpg.c
+index 315ed44..41f0e73 100644
+--- a/src/signal/killpg.c
++++ b/src/signal/killpg.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <errno.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int killpg(pid_t pgid, int sig)
+ {
+ 	if (pgid < 0) {
+@@ -9,3 +10,4 @@ int killpg(pid_t pgid, int sig)
+ 	}
+ 	return kill(-pgid, sig);
+ }
++#endif
+diff --git a/src/signal/raise.c b/src/signal/raise.c
+index 717b1c9..d9af209 100644
+--- a/src/signal/raise.c
++++ b/src/signal/raise.c
+@@ -3,6 +3,7 @@
+ #include "syscall.h"
+ #include "pthread_impl.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int raise(int sig)
+ {
+ 	int tid, ret;
+@@ -13,3 +14,4 @@ int raise(int sig)
+ 	__restore_sigs(&set);
+ 	return ret;
+ }
++#endif
+diff --git a/src/signal/sigaction.c b/src/signal/sigaction.c
+index 6eca06f..84cec1a 100644
+--- a/src/signal/sigaction.c
++++ b/src/signal/sigaction.c
+@@ -16,6 +16,9 @@ void __get_handler_set(sigset_t *set)
+ 
+ int __libc_sigaction(int sig, const struct sigaction *restrict sa, struct sigaction *restrict old)
+ {
++#ifdef CONFIG_LIBUKSIGNAL
++	return sigaction(sig, sa, old);
++#else
+ 	struct k_sigaction ksa, ksa_old;
+ 	if (sa) {
+ 		if ((uintptr_t)sa->sa_handler > 1UL) {
+@@ -49,8 +52,10 @@ int __libc_sigaction(int sig, const struct sigaction *restrict sa, struct sigact
+ 		memcpy(&old->sa_mask, &ksa_old.mask, sizeof ksa_old.mask);
+ 	}
+ 	return 0;
++#endif
+ }
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int __sigaction(int sig, const struct sigaction *restrict sa, struct sigaction *restrict old)
+ {
+ 	if (sig-32U < 3 || sig-1U >= _NSIG-1) {
+@@ -61,3 +66,5 @@ int __sigaction(int sig, const struct sigaction *restrict sa, struct sigaction *
+ }
+ 
+ weak_alias(__sigaction, sigaction);
++
++#endif
+diff --git a/src/signal/sigaddset.c b/src/signal/sigaddset.c
+index 085d1f4..eddf50a 100644
+--- a/src/signal/sigaddset.c
++++ b/src/signal/sigaddset.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <errno.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigaddset(sigset_t *set, int sig)
+ {
+ 	unsigned s = sig-1;
+@@ -11,3 +12,4 @@ int sigaddset(sigset_t *set, int sig)
+ 	set->__bits[s/8/sizeof *set->__bits] |= 1UL<<(s&8*sizeof *set->__bits-1);
+ 	return 0;
+ }
++#endif
+diff --git a/src/signal/sigaltstack.c b/src/signal/sigaltstack.c
+index 62cb81a..971c1d7 100644
+--- a/src/signal/sigaltstack.c
++++ b/src/signal/sigaltstack.c
+@@ -2,6 +2,7 @@
+ #include <errno.h>
+ #include "syscall.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigaltstack(const stack_t *restrict ss, stack_t *restrict old)
+ {
+ 	if (ss) {
+@@ -16,3 +17,4 @@ int sigaltstack(const stack_t *restrict ss, stack_t *restrict old)
+ 	}
+ 	return syscall(SYS_sigaltstack, ss, old);
+ }
++#endif
+diff --git a/src/signal/sigandset.c b/src/signal/sigandset.c
+index 974186f..2a4c824 100644
+--- a/src/signal/sigandset.c
++++ b/src/signal/sigandset.c
+@@ -1,12 +1,14 @@
+ #define _GNU_SOURCE
+ #include <signal.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ #define SST_SIZE (_NSIG/8/sizeof(long))
+ 
++
+ int sigandset(sigset_t *dest, const sigset_t *left, const sigset_t *right)
+ {
+ 	unsigned long i = 0, *d = (void*) dest, *l = (void*) left, *r = (void*) right;
+ 	for(; i < SST_SIZE; i++) d[i] = l[i] & r[i];
+ 	return 0;
+ }
+-
++#endif
+diff --git a/src/signal/sigdelset.c b/src/signal/sigdelset.c
+index ce69280..d1b4fa4 100644
+--- a/src/signal/sigdelset.c
++++ b/src/signal/sigdelset.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <errno.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigdelset(sigset_t *set, int sig)
+ {
+ 	unsigned s = sig-1;
+@@ -11,3 +12,4 @@ int sigdelset(sigset_t *set, int sig)
+ 	set->__bits[s/8/sizeof *set->__bits] &=~(1UL<<(s&8*sizeof *set->__bits-1));
+ 	return 0;
+ }
++#endif
+diff --git a/src/signal/sigemptyset.c b/src/signal/sigemptyset.c
+index 1d07471..0fa5f76 100644
+--- a/src/signal/sigemptyset.c
++++ b/src/signal/sigemptyset.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <string.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigemptyset(sigset_t *set)
+ {
+ 	set->__bits[0] = 0;
+@@ -11,3 +12,4 @@ int sigemptyset(sigset_t *set)
+ 	}
+ 	return 0;
+ }
++#endif
+diff --git a/src/signal/sigfillset.c b/src/signal/sigfillset.c
+index 16e7b4f..50f88e4 100644
+--- a/src/signal/sigfillset.c
++++ b/src/signal/sigfillset.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <limits.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigfillset(sigset_t *set)
+ {
+ #if ULONG_MAX == 0xffffffff
+@@ -16,3 +17,4 @@ int sigfillset(sigset_t *set)
+ #endif
+ 	return 0;
+ }
++#endif
+diff --git a/src/signal/siginterrupt.c b/src/signal/siginterrupt.c
+index 7006340..595be73 100644
+--- a/src/signal/siginterrupt.c
++++ b/src/signal/siginterrupt.c
+@@ -1,5 +1,6 @@
+ #include <signal.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int siginterrupt(int sig, int flag)
+ {
+ 	struct sigaction sa;
+@@ -10,3 +11,4 @@ int siginterrupt(int sig, int flag)
+ 
+ 	return sigaction(sig, &sa, 0);
+ }
++#endif
+diff --git a/src/signal/sigisemptyset.c b/src/signal/sigisemptyset.c
+index 312c66c..e9ceb1f 100644
+--- a/src/signal/sigisemptyset.c
++++ b/src/signal/sigisemptyset.c
+@@ -2,8 +2,10 @@
+ #include <signal.h>
+ #include <string.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigisemptyset(const sigset_t *set)
+ {
+ 	static const unsigned long zeroset[_NSIG/8/sizeof(long)];
+ 	return !memcmp(set, &zeroset, _NSIG/8);
+ }
++#endif
+diff --git a/src/signal/sigismember.c b/src/signal/sigismember.c
+index ab87d62..b21a395 100644
+--- a/src/signal/sigismember.c
++++ b/src/signal/sigismember.c
+@@ -1,8 +1,10 @@
+ #include <signal.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigismember(const sigset_t *set, int sig)
+ {
+ 	unsigned s = sig-1;
+ 	if (s >= _NSIG-1) return 0;
+ 	return !!(set->__bits[s/8/sizeof *set->__bits] & 1UL<<(s&8*sizeof *set->__bits-1));
+ }
++#endif
+diff --git a/src/signal/signal.c b/src/signal/signal.c
+index 29e03c8..544e7f5 100644
+--- a/src/signal/signal.c
++++ b/src/signal/signal.c
+@@ -2,6 +2,7 @@
+ #include "syscall.h"
+ #include "libc.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int __sigaction(int, const struct sigaction *, struct sigaction *);
+ 
+ void (*signal(int sig, void (*func)(int)))(int)
+@@ -14,3 +15,4 @@ void (*signal(int sig, void (*func)(int)))(int)
+ 
+ weak_alias(signal, bsd_signal);
+ weak_alias(signal, __sysv_signal);
++#endif
+diff --git a/src/signal/sigpending.c b/src/signal/sigpending.c
+index 3d193df..170716c 100644
+--- a/src/signal/sigpending.c
++++ b/src/signal/sigpending.c
+@@ -1,7 +1,9 @@
+ #include <signal.h>
+ #include "syscall.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigpending(sigset_t *set)
+ {
+ 	return syscall(SYS_rt_sigpending, set, _NSIG/8);
+ }
++#endif
+diff --git a/src/signal/sigprocmask.c b/src/signal/sigprocmask.c
+index 297e20c..4524834 100644
+--- a/src/signal/sigprocmask.c
++++ b/src/signal/sigprocmask.c
+@@ -1,6 +1,7 @@
+ #include <signal.h>
+ #include <errno.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict old)
+ {
+ 	int r = pthread_sigmask(how, set, old);
+@@ -8,3 +9,4 @@ int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict old)
+ 	errno = r;
+ 	return -1;
+ }
++#endif
+diff --git a/src/signal/sigqueue.c b/src/signal/sigqueue.c
+index b75f0c5..15d0875 100644
+--- a/src/signal/sigqueue.c
++++ b/src/signal/sigqueue.c
+@@ -12,8 +12,10 @@ int sigqueue(pid_t pid, int sig, const union sigval value)
+ 	memset(&si, 0, sizeof si);
+ 	si.si_signo = sig;
+ 	si.si_code = SI_QUEUE;
++#ifndef CONFIG_LIBUKSIGNAL
+ 	si.si_value = value;
+ 	si.si_uid = getuid();
++#endif
+ 	__block_app_sigs(&set);
+ 	si.si_pid = getpid();
+ 	r = syscall(SYS_rt_sigqueueinfo, pid, sig, &si);
+diff --git a/src/signal/sigsuspend.c b/src/signal/sigsuspend.c
+index 0b42725..a1e558f 100644
+--- a/src/signal/sigsuspend.c
++++ b/src/signal/sigsuspend.c
+@@ -2,7 +2,9 @@
+ #include "syscall.h"
+ #include "libc.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigsuspend(const sigset_t *mask)
+ {
+ 	return syscall_cp(SYS_rt_sigsuspend, mask, _NSIG/8);
+ }
++#endif
+diff --git a/src/signal/sigwait.c b/src/signal/sigwait.c
+index c8822ee..8d16774 100644
+--- a/src/signal/sigwait.c
++++ b/src/signal/sigwait.c
+@@ -1,5 +1,6 @@
+ #include <signal.h>
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int sigwait(const sigset_t *restrict mask, int *restrict sig)
+ {
+ 	siginfo_t si;
+@@ -8,3 +9,4 @@ int sigwait(const sigset_t *restrict mask, int *restrict sig)
+ 	*sig = si.si_signo;
+ 	return 0;
+ }
++#endif
+diff --git a/src/thread/pthread_cancel.c b/src/thread/pthread_cancel.c
+index 3d22922..5f431f6 100644
+--- a/src/thread/pthread_cancel.c
++++ b/src/thread/pthread_cancel.c
+@@ -41,8 +41,12 @@ long __syscall_cp_c(syscall_arg_t nr,
+ 
+ static void _sigaddset(sigset_t *set, int sig)
+ {
++#ifdef CONFIG_LIBUKSIGNAL
++	sigaddset(set, sig);
++#else
+ 	unsigned s = sig-1;
+ 	set->__bits[s/8/sizeof *set->__bits] |= 1UL<<(s&8*sizeof *set->__bits-1);
++#endif
+ }
+ 
+ __attribute__((__visibility__("hidden")))
+@@ -81,7 +85,11 @@ static void init_cancellation()
+ 		.sa_sigaction = cancel_handler
+ 	};
+ 	memset(&sa.sa_mask, -1, _NSIG/8);
++#ifdef CONFIG_LIBUKSIGNAL
++	sigaction(SIGCANCEL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGCANCEL, &sa, 0);
++#endif
+ }
+ 
+ int pthread_cancel(pthread_t t)
+diff --git a/src/thread/pthread_sigmask.c b/src/thread/pthread_sigmask.c
+index 88c333f..80c6b7e 100644
+--- a/src/thread/pthread_sigmask.c
++++ b/src/thread/pthread_sigmask.c
+@@ -4,6 +4,9 @@
+ 
+ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict old)
+ {
++#ifdef CONFIG_LIBUKSIGNAL
++	return uk_thread_sigmask(how, set, old);
++#else
+ 	int ret;
+ 	if ((unsigned)how - SIG_BLOCK > 2U) return EINVAL;
+ 	ret = -__syscall(SYS_rt_sigprocmask, how, set, old, _NSIG/8);
+@@ -16,4 +19,5 @@ int pthread_sigmask(int how, const sigset_t *restrict set, sigset_t *restrict ol
+ 		}
+ 	}
+ 	return ret;
++#endif
+ }
+diff --git a/src/thread/synccall.c b/src/thread/synccall.c
+index ba2f258..d862d20 100644
+--- a/src/thread/synccall.c
++++ b/src/thread/synccall.c
+@@ -82,7 +82,11 @@ void __synccall(void (*func)(void *), void *ctx)
+ 	 * interrupts the SIGSYNCCALL handlers. The main possible source
+ 	 * of trouble is asynchronous cancellation. */
+ 	memset(&sa.sa_mask, -1, sizeof sa.sa_mask);
++#if CONFIG_LIBUKSIGNAL
++	sigaction(SIGSYNCCALL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGSYNCCALL, &sa, 0);
++#endif
+ 
+ 	pid = __syscall(SYS_getpid);
+ 	self = __syscall(SYS_gettid);
+@@ -156,7 +160,11 @@ void __synccall(void (*func)(void *), void *ctx)
+ 	}
+ 
+ 	sa.sa_handler = SIG_IGN;
++#if CONFIG_LIBUKSIGNAL
++	sigaction(SIGSYNCCALL, &sa, 0);
++#else
+ 	__libc_sigaction(SIGSYNCCALL, &sa, 0);
++#endif
+ 
+ single_threaded:
+ 	func(ctx);
+diff --git a/src/unistd/alarm.c b/src/unistd/alarm.c
+index 2e3263a..f5f07c0 100644
+--- a/src/unistd/alarm.c
++++ b/src/unistd/alarm.c
+@@ -2,9 +2,11 @@
+ #include <sys/time.h>
+ #include "syscall.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ unsigned alarm(unsigned seconds)
+ {
+ 	struct itimerval it = { .it_value.tv_sec = seconds };
+ 	__syscall(SYS_setitimer, ITIMER_REAL, &it, &it);
+ 	return it.it_value.tv_sec + !!it.it_value.tv_usec;
+ }
++#endif
+diff --git a/src/unistd/pause.c b/src/unistd/pause.c
+index 56eb171..097a4fb 100644
+--- a/src/unistd/pause.c
++++ b/src/unistd/pause.c
+@@ -3,6 +3,7 @@
+ #include "syscall.h"
+ #include "libc.h"
+ 
++#ifndef CONFIG_LIBUKSIGNAL
+ int pause(void)
+ {
+ #ifdef SYS_pause
+@@ -11,3 +12,4 @@ int pause(void)
+ 	return syscall_cp(SYS_ppoll, 0, 0, 0, 0);
+ #endif
+ }
++#endif
+-- 
+2.25.1
+
