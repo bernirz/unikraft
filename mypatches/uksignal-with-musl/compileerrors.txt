@@ -1,0 +1,42 @@
+  CC      libukboot: boot.o
+In file included from /home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h:41,
+                 from /home/berni/musltestenv/Bernard/unikraft/lib/uksched/include/uk/thread.h:40,
+                 from /home/berni/musltestenv/Bernard/unikraft/lib/uksched/include/uk/sched.h:37,
+                 from /home/berni/musltestenv/Bernard/unikraft/lib/ukboot/boot.c:50:
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h: In function ‘uk_sigset_remove_unmaskable’:
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/bits/sigset.h:49:42: error: invalid operands to binary & (have ‘sigset_t’ {aka ‘struct __sigset_t’} and ‘int’)
+   49 | #define uk_sigdelset(ptr, signo) (*(ptr) &= ~(1 << ((signo) - 1)))
+      |                                          ^~
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h:128:2: note: in expansion of macro ‘uk_sigdelset’
+  128 |  uk_sigdelset(sig, SIGKILL);
+      |  ^~~~~~~~~~~~
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/bits/sigset.h:49:42: error: invalid operands to binary & (have ‘sigset_t’ {aka ‘struct __sigset_t’} and ‘int’)
+   49 | #define uk_sigdelset(ptr, signo) (*(ptr) &= ~(1 << ((signo) - 1)))
+      |                                          ^~
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h:129:2: note: in expansion of macro ‘uk_sigdelset’
+  129 |  uk_sigdelset(sig, SIGSTOP);
+      |  ^~~~~~~~~~~~
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h: In function ‘uk_add_proc_signal’:
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/bits/sigset.h:48:42: error: invalid operands to binary | (have ‘sigset_t’ {aka ‘struct __sigset_t’} and ‘int’)
+   48 | #define uk_sigaddset(ptr, signo) (*(ptr) |= (1 << ((signo) - 1)))
+      |                                          ^~ ~~~~~~~~~~~~~~~~~~~~
+      |                                                |
+      |                                                int
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h:135:2: note: in expansion of macro ‘uk_sigaddset’
+  135 |  uk_sigaddset(&uk_proc_sig.pending, sig->si_signo);
+      |  ^~~~~~~~~~~~
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h: In function ‘uk_remove_proc_signal’:
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/bits/sigset.h:49:42: error: invalid operands to binary & (have ‘sigset_t’ {aka ‘struct __sigset_t’} and ‘int’)
+   49 | #define uk_sigdelset(ptr, signo) (*(ptr) &= ~(1 << ((signo) - 1)))
+      |                                          ^~ ~~~~~~~~~~~~~~~~~~~~~
+      |                                             |
+      |                                             int
+/home/berni/musltestenv/Bernard/unikraft/lib/uksignal/include/uk/uk_signal.h:140:2: note: in expansion of macro ‘uk_sigdelset’
+  140 |  uk_sigdelset(&uk_proc_sig.pending, sig);
+      |  ^~~~~~~~~~~~
+make[3]: *** [/home/berni/musltestenv/Bernard/unikraft/support/build/Makefile.build:27: /home/berni/musltestenv/Bernard/apps/app-testkill/build/libukboot/boot.o] Error 1
+make[2]: *** [Makefile:984: sub-make] Error 2
+make[1]: *** [Makefile:32: _all] Error 2
+make[1]: Leaving directory '/home/berni/musltestenv/Bernard/unikraft'
+make: *** [Makefile:12: all] Error 2
+
