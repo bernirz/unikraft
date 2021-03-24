@@ -1,0 +1,36 @@
+From b55b1a3b8445fed321a21ed477fd60c8119e7965 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 24 Mar 2021 19:40:29 +0100
+Subject: [UNIKRAFT/LIBNEWLIB] sigset_t struct update
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ musl-imported/include/signal.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/musl-imported/include/signal.h b/musl-imported/include/signal.h
+index 55b40d1..b60f7c9 100644
+--- a/musl-imported/include/signal.h
++++ b/musl-imported/include/signal.h
+@@ -3,6 +3,7 @@
+ #define __UK_SIGNAL_H__
+ 
+ #include <stddef.h>
++#include <sys/_sigset.h>
+ 
+ #ifdef __cplusplus
+ extern "C" {
+@@ -60,9 +61,9 @@ extern "C" {
+ 
+ typedef int pid_t;
+ typedef int sig_atomic_t;
+-typedef unsigned long __sigset_t;
+ typedef __sigset_t sigset_t;
+ 
++
+ #define NSIG _NSIG
+ 
+ typedef struct {
+-- 
+2.25.1
+

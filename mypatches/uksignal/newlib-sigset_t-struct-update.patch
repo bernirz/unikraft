@@ -1,0 +1,25 @@
+From 26f76b9ac8ccb1820fd257ef1b97724e58dab868 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 24 Mar 2021 18:21:45 +0100
+Subject: [UNIKRAFT/LIBNEWLIB] sigset_t struct update
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ newlib/libc/include/sys/_sigset.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/newlib/libc/include/sys/_sigset.h b/newlib/libc/include/sys/_sigset.h
+index a9c0d2d..794381f 100644
+--- a/newlib/libc/include/sys/_sigset.h
++++ b/newlib/libc/include/sys/_sigset.h
+@@ -38,6 +38,6 @@
+ #ifndef _SYS__SIGSET_H_
+ #define	_SYS__SIGSET_H_
+ 
+-typedef unsigned long __sigset_t;
++typedef struct { unsigned long __bits[128/sizeof(long)]; } __sigset_t;
+ 
+ #endif /* !_SYS__SIGSET_H_ */
+-- 
+2.25.1
+
