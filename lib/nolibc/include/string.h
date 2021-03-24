@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #ifndef __STRING_H__
@@ -71,6 +69,9 @@ char *strdup(const char *str);
 
 char *strerror_r(int errnum, char *buf, size_t buflen);
 char *strerror(int errnum);
+
+char *strsignal(int sig);
+
 
 #ifdef __cplusplus
 }

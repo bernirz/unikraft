@@ -1,12 +1,58 @@
+<<<<<<< HEAD
+=======
+/*
+ * Copyright (C) 2013 Cloudius Systems, Ltd.
+ *
+ * Parts are copyright by other contributors. Please refer to copyright notices
+ * in the individual source files, and to the git commit log, for a more accurate
+ * list of copyright holders.
+ *
+ * OSv is open-source software, distributed under the 3-clause BSD license:
+ *
+ *     Redistribution and use in source and binary forms, with or without
+ *     modification, are permitted provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright notice,
+ *       this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above copyright notice,
+ *       this list of conditions and the following disclaimer in the documentation
+ *       and/or other materials provided with the distribution.
+ *
+ *     * Neither the name of the Cloudius Systems, Ltd. nor the names of its
+ *       contributors may be used to endorse or promote products derived from this
+ *       software without specific prior written permission.
+ *
+ *     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ *     AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ *     IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *     DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ *     FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ *     DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ *     SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ *     CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+>>>>>>> upstream/staging
 /* adapted from OSv */
 
 #include <errno.h>
 
 #include <uk/alloc.h>
 #include <uk/sched.h>
+<<<<<<< HEAD
 #include <uk/signal.h>
 #include <uk/thread.h>
 #include <uk/uk_signal.h>
+=======
+#include <signal.h>
+#include <uk/thread.h>
+#include <uk/uk_signal.h>
+#include <uk/essentials.h>
+#include <uk/process.h>
+#include <unistd.h>
+>>>>>>> upstream/staging
 
 /*
  * Tries to deliver a pending signal to the current thread
@@ -71,7 +117,12 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 	if (act) {
 		/* TODO: SA_NODEFER */
 		uk_proc_sig.sigaction[signum - 1] = *act;
+<<<<<<< HEAD
 		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask, signum);
+=======
+		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask,
+			     signum);
+>>>>>>> upstream/staging
 
 		/* remove signal from where it is pending */
 		if (is_sig_ign(act)) {
@@ -80,14 +131,29 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 
 			/* remove it from threads*/
 			uk_list_for_each(i, &uk_proc_sig.thread_sig_list) {
+<<<<<<< HEAD
 				th_sig = uk_list_entry(i, struct uk_thread_sig, list_node);
+=======
+				th_sig = uk_list_entry(i, struct uk_thread_sig,
+						       list_node);
+>>>>>>> upstream/staging
 
 				signal = uk_sig_th_get_pending(th_sig, signum);
 
 				if (signal) {
+<<<<<<< HEAD
 					/* remove it from the list of pending signals */
 					uk_list_del(&signal->list_node);
 					uk_sigdelset(&th_sig->pending, signal->info.si_signo);
+=======
+					/*
+					 * remove it from the list of
+					 * pending signalsi
+					 */
+					uk_list_del(&signal->list_node);
+					uk_sigdelset(&th_sig->pending,
+						     signal->info.si_signo);
+>>>>>>> upstream/staging
 					uk_free(uk_alloc_get_default(), signal);
 				}
 			}
@@ -137,11 +203,14 @@ int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 	return uk_thread_sigmask(how, set, oldset);
 }
 
+<<<<<<< HEAD
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
 {
 	return uk_thread_sigmask(how, set, oldset);
 }
 
+=======
+>>>>>>> upstream/staging
 int sigsuspend(const sigset_t *mask)
 {
 	/* If the signals are ignored, this doesn't return <- POSIX */
@@ -314,7 +383,42 @@ int kill(pid_t pid, int sig)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+int killpg(int pgrp, int sig)
+{
+	if (pgrp != UNIKRAFT_PGID || pgrp != 0) {
+		errno = ESRCH;
+		return -1;
+	}
+
+	return kill(getpid(), sig);
+}
+
+>>>>>>> upstream/staging
 int raise(int sig)
 {
 	return uk_sig_thread_kill(uk_thread_current(), sig);
 }
+<<<<<<< HEAD
+=======
+
+/**
+ * Stubbing the function support from requiring signal.
+ * Stubs taken from newlib
+ */
+unsigned int alarm(unsigned int seconds __unused)
+{
+	return 0;
+}
+
+int siginterrupt(int sig __unused, int flag __unused)
+{
+	return 0;
+}
+
+int pause(void)
+{
+	return 0;
+}
+>>>>>>> upstream/staging

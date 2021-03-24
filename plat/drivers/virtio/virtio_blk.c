@@ -186,7 +186,7 @@ static int virtio_blkdev_request_write(struct uk_blkdev_queue *queue,
 	vbdev = queue->vbd;
 	cap = &vbdev->blkdev.capabilities;
 	req = virtio_blk_req->req;
-	if (req->operation == UK_BLKDEV_WRITE &&
+	if (req->operation == UK_BLKREQ_WRITE &&
 			cap->mode == O_RDONLY)
 		return -EPERM;
 
@@ -209,11 +209,11 @@ static int virtio_blkdev_request_write(struct uk_blkdev_queue *queue,
 		goto out;
 	}
 
-	if (req->operation == UK_BLKDEV_WRITE) {
+	if (req->operation == UK_BLKREQ_WRITE) {
 		*read_segs = queue->sg.sg_nseg - 1;
 		*write_segs = 1;
 		virtio_blk_req->virtio_blk_outhdr.type = VIRTIO_BLK_T_OUT;
-	} else if (req->operation == UK_BLKDEV_READ) {
+	} else if (req->operation == UK_BLKREQ_READ) {
 		*read_segs = 1;
 		*write_segs = queue->sg.sg_nseg - 1;
 		virtio_blk_req->virtio_blk_outhdr.type = VIRTIO_BLK_T_IN;
@@ -278,11 +278,11 @@ static int virtio_blkdev_queue_enqueue(struct uk_blkdev_queue *queue,
 
 	virtio_blk_req->req = req;
 	virtio_blk_req->virtio_blk_outhdr.sector = req->start_sector;
-	if (req->operation == UK_BLKDEV_WRITE ||
-			req->operation == UK_BLKDEV_READ)
+	if (req->operation == UK_BLKREQ_WRITE ||
+			req->operation == UK_BLKREQ_READ)
 		rc = virtio_blkdev_request_write(queue, virtio_blk_req,
 				&read_segs, &write_segs);
-	else if (req->operation == UK_BLKDEV_FFLUSH)
+	else if (req->operation == UK_BLKREQ_FFLUSH)
 		rc = virtio_blkdev_request_flush(queue, virtio_blk_req,
 				&read_segs, &write_segs);
 	else
@@ -861,12 +861,12 @@ static const struct uk_blkdev_ops virtio_blkdev_ops = {
 		.get_info = virtio_blkdev_get_info,
 		.dev_configure = virtio_blkdev_configure,
 		.queue_get_info = virtio_blkdev_queue_info_get,
-		.queue_setup = virtio_blkdev_queue_setup,
+		.queue_configure = virtio_blkdev_queue_setup,
 		.queue_intr_enable = virtio_blkdev_queue_intr_enable,
 		.dev_start = virtio_blkdev_start,
 		.dev_stop = virtio_blkdev_stop,
 		.queue_intr_disable = virtio_blkdev_queue_intr_disable,
-		.queue_release = virtio_blkdev_queue_release,
+		.queue_unconfigure = virtio_blkdev_queue_release,
 		.dev_unconfigure = virtio_blkdev_unconfigure,
 };
 

@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <unistd.h>
@@ -44,6 +42,7 @@
 #include <uk/ctors.h>
 #include <uk/print.h>
 #include <uk/user.h>
+#include <uk/syscall.h>
 
 #define UK_DEFAULT_UID    0
 #define UK_DEFAULT_GID    0
@@ -89,7 +88,7 @@ static void init_posix_user(void)
 }
 UK_CTOR_FUNC(2, init_posix_user);
 
-uid_t getuid(void)
+UK_SYSCALL_R_DEFINE(uid_t, getuid)
 {
 	return 0;
 }
@@ -99,7 +98,7 @@ int setuid(uid_t uid __unused)
 	return 0;
 }
 
-uid_t geteuid(void)
+UK_SYSCALL_R_DEFINE(uid_t, geteuid)
 {
 	return 0;
 }
@@ -190,7 +189,7 @@ struct passwd *getpwent(void)
 	return pwd;
 }
 
-gid_t getgid(void)
+UK_SYSCALL_R_DEFINE(gid_t, getgid)
 {
 	return 0;
 }
@@ -205,7 +204,7 @@ int issetugid(void)
 	return 0;
 }
 
-gid_t getegid(void)
+UK_SYSCALL_R_DEFINE(gid_t, getegid)
 {
 	return 0;
 }

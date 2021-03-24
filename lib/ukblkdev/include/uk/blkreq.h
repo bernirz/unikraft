@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 #ifndef UK_BLKREQ_H_
 #define UK_BLKREQ_H_
@@ -47,15 +45,19 @@
 extern "C" {
 #endif
 
-#define __sector size_t
+#include <uk/arch/atomic.h>
+
+typedef __sz __sector;
+#define __PRIsctr __PRIsz
+
 struct uk_blkreq;
 
 /**
  *	Operation status
  */
 enum uk_blkreq_state {
-	UK_BLKDEV_REQ_FINISHED = 0,
-	UK_BLKDEV_REQ_UNFINISHED
+	UK_BLKREQ_FINISHED = 0,
+	UK_BLKREQ_UNFINISHED
 };
 
 /**
@@ -63,11 +65,11 @@ enum uk_blkreq_state {
  */
 enum uk_blkreq_op {
 	/* Read operation */
-	UK_BLKDEV_READ = 0,
+	UK_BLKREQ_READ = 0,
 	/* Write operation */
-	UK_BLKDEV_WRITE,
+	UK_BLKREQ_WRITE,
 	/* Flush the volatile write cache */
-	UK_BLKDEV_FFLUSH = 4
+	UK_BLKREQ_FFLUSH = 4
 };
 
 /**
@@ -131,7 +133,7 @@ static inline void uk_blkreq_init(struct uk_blkreq *req,
 	req->start_sector = start;
 	req->nb_sectors = nb_sectors;
 	req->aio_buf = aio_buf;
-	ukarch_store_n(&req->state.counter, UK_BLKDEV_REQ_UNFINISHED);
+	ukarch_store_n(&req->state.counter, UK_BLKREQ_UNFINISHED);
 	req->cb = cb;
 	req->cb_cookie = cb_cookie;
 }
@@ -143,7 +145,7 @@ static inline void uk_blkreq_init(struct uk_blkreq *req,
  *	uk_blkreq structure
  **/
 #define uk_blkreq_is_done(req) \
-		(ukarch_load_n(&(req)->state.counter) == UK_BLKDEV_REQ_FINISHED)
+		(ukarch_load_n(&(req)->state.counter) == UK_BLKREQ_FINISHED)
 
 #ifdef __cplusplus
 }

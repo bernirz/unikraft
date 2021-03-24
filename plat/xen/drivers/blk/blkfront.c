@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 #include <inttypes.h>
 #include <string.h>
@@ -250,7 +248,7 @@ static void blkif_request_init(struct blkif_request *ring_req,
 	UK_ASSERT(nb_segments <= BLKIF_MAX_SEGMENTS_PER_REQUEST);
 
 	/* Set ring request */
-	ring_req->operation = (req->operation == UK_BLKDEV_WRITE) ?
+	ring_req->operation = (req->operation == UK_BLKREQ_WRITE) ?
 			BLKIF_OP_WRITE : BLKIF_OP_READ;
 	ring_req->nr_segments = nb_segments;
 	ring_req->sector_number = req->start_sector;
@@ -281,7 +279,7 @@ static int blkfront_request_write(struct blkfront_request *blkfront_req,
 	dev = blkfront_req->queue->dev;
 	cap = &dev->blkdev.capabilities;
 	sector_size = cap->ssize;
-	if (req->operation == UK_BLKDEV_WRITE && cap->mode == O_RDONLY)
+	if (req->operation == UK_BLKREQ_WRITE && cap->mode == O_RDONLY)
 		return -EPERM;
 
 	if (req->aio_buf == NULL)
@@ -360,10 +358,10 @@ static int blkfront_queue_enqueue(struct uk_blkdev_queue *queue,
 	ring_req->id = (uintptr_t) blkfront_req;
 	ring_req->handle = dev->handle;
 
-	if (req->operation == UK_BLKDEV_READ ||
-			req->operation == UK_BLKDEV_WRITE)
+	if (req->operation == UK_BLKREQ_READ ||
+			req->operation == UK_BLKREQ_WRITE)
 		rc = blkfront_request_write(blkfront_req, ring_req);
-	else if (req->operation == UK_BLKDEV_FFLUSH)
+	else if (req->operation == UK_BLKREQ_FFLUSH)
 		rc =  blkfront_request_flush(blkfront_req, ring_req);
 	else
 		rc = -EINVAL;
@@ -891,8 +889,8 @@ static const struct uk_blkdev_ops blkfront_ops = {
 	.get_info = blkfront_get_info,
 	.dev_configure = blkfront_configure,
 	.queue_get_info = blkfront_queue_get_info,
-	.queue_setup = blkfront_queue_setup,
-	.queue_release = blkfront_queue_release,
+	.queue_configure = blkfront_queue_setup,
+	.queue_unconfigure = blkfront_queue_release,
 	.dev_start = blkfront_start,
 	.dev_stop = blkfront_stop,
 	.dev_unconfigure = blkfront_unconfigure,

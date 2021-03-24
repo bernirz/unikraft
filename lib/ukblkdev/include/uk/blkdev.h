@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 /* This is derived from uknetdev because of consistency reasons */
 #ifndef __UK_BLKDEV__
@@ -51,7 +49,7 @@
  * The functions exported by the Unikraft BLK API to setup a device
  * designated by its ID must be invoked in the following order:
  *      - uk_blkdev_configure()
- *      - uk_blkdev_queue_setup()
+ *      - uk_blkdev_queue_configure()
  *      - uk_blkdev_start()
  *
  * There are 4 states in which a block device can be found:
@@ -66,6 +64,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <limits.h>
+#include <uk/assert.h>
 #include <uk/list.h>
 #include <uk/errptr.h>
 
@@ -196,7 +195,7 @@ int uk_blkdev_queue_get_info(struct uk_blkdev *dev, uint16_t queue_id,
  *	to retrieve limitations.
  * @param queue_conf
  *	The pointer to the configuration data to be used for the queue.
- *	This can be shared across multiple queue setups.
+ *	This can be shared across multiple queue configurations.
  * @return
  *	- 0: Success, receive queue correctly set up.
  *	- <0: Unable to allocate and set up the ring descriptors.
@@ -253,6 +252,9 @@ static inline const struct uk_blkdev_cap *uk_blkdev_capabilities(
 
 #define uk_blkdev_sectors(blkdev) \
 	(uk_blkdev_capabilities(blkdev)->sectors)
+
+#define uk_blkdev_size(blkdev) \
+	((size_t) uk_blkdev_sectors(blkdev) * uk_blkdev_ssize(blkdev))
 
 #define uk_blkdev_ioalign(blkdev) \
 	(uk_blkdev_capabilities(blkdev)->ioalign)
@@ -409,7 +411,8 @@ int uk_blkdev_queue_submit_one(struct uk_blkdev *dev, uint16_t queue_id,
 					     | UK_BLKDEV_STATUS_MORE))
 
 /**
- * Get responses from the queue
+ * Get responses from the queue and re-enable interrupts on the target queue
+ * when they were enabled before.
  *
  * @param dev
  *	The Unikraft Block Device
@@ -458,18 +461,18 @@ int uk_blkdev_sync_io(struct uk_blkdev *dev,
 		sector,		\
 		nb_sectors,	\
 		buf)		\
-	uk_blkdev_sync_io(blkdev, queue_id, UK_BLKDEV_WRITE, sector, \
-			nb_sectors, buf) \
+	uk_blkdev_sync_io(blkdev, queue_id, UK_BLKREQ_WRITE, sector, \
+			  nb_sectors, buf)			     \
 
 #define uk_blkdev_sync_read(blkdev,\
 		queue_id,	\
 		sector,		\
 		nb_sectors,	\
 		buf)		\
-	uk_blkdev_sync_io(blkdev, queue_id, UK_BLKDEV_READ, sector, \
-			nb_sectors, buf) \
+	uk_blkdev_sync_io(blkdev, queue_id, UK_BLKREQ_READ, sector, \
+			  nb_sectors, buf)			    \
 
-#endif
+#endif /* CONFIG_LIBUKBLKDEV_SYNC_IO_BLOCKED_WAITING */
 
 /**
  * Stop a Unikraft block device, and set its state to UK_BLKDEV_CONFIGURED
@@ -495,12 +498,12 @@ int uk_blkdev_stop(struct uk_blkdev *dev);
  * @param queue_id
  *	The index of the queue to release.
  *	The value must be in range [0, nb_queue -1] previously supplied
- *	to uk_blkdev_configure()
- *	@return
+ *	to uk_blkdev_queue_configure()
+ * @return
  *	- 0: Success
  *	- (<0): on error returned by driver
  */
-int uk_blkdev_queue_release(struct uk_blkdev *dev, uint16_t queue_id);
+int uk_blkdev_queue_unconfigure(struct uk_blkdev *dev, uint16_t queue_id);
 
 /**
  * Close a stopped Unikraft block device.

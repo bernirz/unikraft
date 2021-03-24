@@ -28,8 +28,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <inttypes.h>
@@ -347,7 +345,7 @@ static int virtio_9p_feature_negotiate(struct virtio_9p_device *d)
 
 	if (virtio_config_get(d->vdev,
 			  __offsetof(struct virtio_9p_config, tag_len),
-			  &tag_len, 1, sizeof(tag_len)))
+			  &tag_len, 1, sizeof(tag_len)) < 0)
 	{
 		rc = -EAGAIN;
 		goto out;
@@ -359,14 +357,23 @@ static int virtio_9p_feature_negotiate(struct virtio_9p_device *d)
 		goto out;
 	}
 
-	virtio_config_get(d->vdev,
+
+	if (virtio_config_get(d->vdev,
 			  __offsetof(struct virtio_9p_config, tag),
-			  d->tag, tag_len, 1);
+			  d->tag, tag_len, 1) < 0) {
+		uk_pr_err(DRIVER_NAME": Failed to read the tag on the device %p\n",
+			  d);
+		rc = -EAGAIN;
+		goto free_mem;
+	}
 	d->tag[tag_len] = '\0';
 
 	d->vdev->features &= host_features;
 	virtio_feature_set(d->vdev, d->vdev->features);
+	return 0;
 
+free_mem:
+	uk_free(a, d->tag);
 out:
 	return rc;
 }

@@ -1,8 +1,52 @@
+<<<<<<< HEAD
+=======
+/* SPDX-License-Identifier: BSD-3-Clause */
+/*
+ * Authors:  Mihai Pogonaru <pogonarumihai@gmail.com>
+ *		     Teodora Serbanescu <teo.serbanescu16@gmail.com>
+ *		     Felipe Huici <felipe.huici@neclab.eu>
+ *		     Bernard Rizzo <b.rizzo@student.uliege.be>
+ *
+ * Copyright (c) 2021, University Politehnica of Bucharest.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+>>>>>>> upstream/staging
 #ifndef __UK_UK_SIGNAL_H__
 #define __UK_UK_SIGNAL_H__
 
 #include <uk/list.h>
+<<<<<<< HEAD
 #include <uk/signal.h>
+=======
+#include <uk/bits/sigset.h>
+#include <signal.h>
+>>>>>>> upstream/staging
 
 #ifdef __cplusplus
 extern "C" {
@@ -22,7 +66,13 @@ struct uk_signal {
 struct uk_proc_sig {
 	/* used as a bitmap for pending signals */
 	sigset_t pending;
+<<<<<<< HEAD
 	/* pending signals - valid only if corresponding bit in pending is set */
+=======
+	/* pending signals - valid only if
+	 * corresponding bit in pending is set
+	 */
+>>>>>>> upstream/staging
 	siginfo_t pending_signals[NSIG - 1];
 	/* signal handlers for this process */
 	struct sigaction sigaction[NSIG - 1];
@@ -43,9 +93,15 @@ struct uk_thread_sig_wait {
 	 * waiting status
 	 *
 	 * values:
+<<<<<<< HEAD
 	 * 	UK_SIG_NOT_WAITING - thread is not waiting
 	 * 	UK_SIG_WAITING - thread is waiting for a signal
 	 * 	UK_SIG_WAITING_SCHED - thread is waiting to be scheduled
+=======
+	 *	UK_SIG_NOT_WAITING - thread is not waiting
+	 *	UK_SIG_WAITING - thread is waiting for a signal
+	 *	UK_SIG_WAITING_SCHED - thread is waiting to be scheduled
+>>>>>>> upstream/staging
 	 */
 	enum uk_sig_waiting status;
 	/* used as a bitmap for awaited signals */

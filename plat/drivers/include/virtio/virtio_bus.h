@@ -28,8 +28,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #ifndef __PLAT_DRV_VIRTIO_H
@@ -240,7 +238,7 @@ static inline void virtio_feature_set(struct virtio_dev *vdev, __u32 feature)
  * @param type_len
  *	The data type of the configuration data.
  * @return int
- *	0, on successful reading the configuration space.
+ *	>= 0, on successful reading the configuration space.
  *	< 0, on error.
  */
 static inline int virtio_config_get(struct virtio_dev *vdev, __u16 offset,

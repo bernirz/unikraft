@@ -1,8 +1,12 @@
 clock_getres
 clock_gettime
+uk_syscall_e_clock_gettime
+uk_syscall_r_clock_gettime
 clock_settime
 gettimeofday
 nanosleep
+uk_syscall_e_nanosleep
+uk_syscall_r_nanosleep
 setitimer
 sleep
 timegm

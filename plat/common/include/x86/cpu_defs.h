@@ -28,8 +28,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 #ifndef __PLAT_CMN_X86_CPU_DEFS_H__
 #define __PLAT_CMN_X86_CPU_DEFS_H__
@@ -71,6 +69,7 @@
 #define X86_CR4_OSXMMEXCPT      (1 << 10)   /* OS support for FP exceptions */
 #define X86_CR4_FSGSBASE        (1 << 16)   /* enable FSGSBASE*/
 #define X86_CR4_OSXSAVE         (1 << 18)   /* enable XSAVE, extended states */
+#define X86_CR4_PKE             (1 << 22)   /* enable protection keys */
 
 /*
  * Intel CPU features in EFER
@@ -86,6 +85,8 @@
 #define X86_CPUID1_EDX_SSE      (1 << 25)
 /* CPUID feature bits in EBX and ECX when EAX=7, ECX=0 */
 #define X86_CPUID7_EBX_FSGSBASE (1 << 0)
+#define X86_CPUID7_ECX_PKU	(1 << 3)
+#define X86_CPUID7_ECX_OSPKE	(1 << 4)
 /* CPUID feature bits when EAX=0xd, ECX=1 */
 #define X86_CPUIDD1_EAX_XSAVEOPT (1<<0)
 /* CPUID 80000001H:EDX feature list */
@@ -97,6 +98,7 @@
 #define X86_XCR0_X87            (1 << 0)
 #define X86_XCR0_SSE            (1 << 1)
 #define X86_XCR0_AVX            (1 << 2)
+#define X86_XCR0_PKRU		(1 << 9)
 
 /*
  * Model-specific register addresses

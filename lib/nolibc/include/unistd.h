@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #ifndef __UNISTD_H__
@@ -88,6 +86,11 @@ int dup3(int oldfd, int newfd, int flags);
 int unlink(const char *pathname);
 off_t lseek(int fd, off_t offset, int whence);
 #endif
+
+#if CONFIG_LIBUKSIGNAL
+unsigned int alarm(unsigned int seconds);
+int pause(void);
+#endif /* CONFIG_LIBUKSIGNAL */
 
 #define STDIN_FILENO	0	/* standard input file descriptor */
 #define STDOUT_FILENO	1	/* standard output file descriptor */

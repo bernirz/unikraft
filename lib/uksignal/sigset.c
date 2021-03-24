@@ -1,7 +1,12 @@
 /* taken from newlib */
 
 #include <errno.h>
+<<<<<<< HEAD
 #include <uk/signal.h>
+=======
+#include <uk/uk_signal.h>
+#include <signal.h>
+>>>>>>> upstream/staging
 
 int sigemptyset(sigset_t *set)
 {

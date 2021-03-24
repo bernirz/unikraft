@@ -28,8 +28,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <stddef.h>
@@ -117,7 +115,7 @@ UK_SYSCALL_R_DEFINE(int, uname, struct utsname *, buf)
 	return 0;
 }
 
-int sethostname(const char *name, size_t len)
+UK_SYSCALL_DEFINE(int, sethostname, const char*, name, size_t, len)
 {
 	if (name == NULL) {
 		errno = EFAULT;

@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 /* This is derived from uknetdev because of consistency reasons */
 #ifndef __UK_BLKDEV_DRIVER__
@@ -104,7 +102,7 @@ static inline void uk_blkdev_drv_queue_event(struct uk_blkdev *dev,
  *	uk_blkreq structure
  */
 #define uk_blkreq_finished(req) \
-	(ukarch_store_n(&(req)->state.counter, UK_BLKDEV_REQ_FINISHED))
+	(ukarch_store_n(&(req)->state.counter, UK_BLKREQ_FINISHED))
 
 /**
  * Frees the data allocated for the Unikraft Block Device.

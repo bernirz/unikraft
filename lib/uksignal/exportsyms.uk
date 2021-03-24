@@ -16,12 +16,26 @@ sigsuspend
 sigpending
 sigwait
 kill
+<<<<<<< HEAD
 raise
 pthread_sigmask
+=======
+killpg
+raise
+siginterrupt
+>>>>>>> upstream/staging
 
 # sigset.h
 sigemptyset
 sigfillset
 sigaddset
 sigdelset
+<<<<<<< HEAD
 sigismember
+=======
+sigismember
+
+# unistd.h
+alarm
+pause
+>>>>>>> upstream/staging

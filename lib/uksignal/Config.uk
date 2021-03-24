@@ -5,3 +5,7 @@ menuconfig LIBUKSIGNAL
 	select LIBUKDEBUG
 	select LIBUKALLOC
 	select LIBUKSCHED
+<<<<<<< HEAD
+=======
+	select LIBPOSIX_PROCESS
+>>>>>>> upstream/staging

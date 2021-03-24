@@ -278,7 +278,7 @@ export SHELL CONFIG_SHELL Q KBUILD_VERBOSE
 UK_FETCH:=
 UK_FETCH-y:=
 UK_PREPARE:=
-UK_PREPATE-y:=
+UK_PREPARE-y:=
 UK_PLATS:=
 UK_PLATS-y:=
 UK_LIBS:=
@@ -513,6 +513,7 @@ ifeq ($(sub_make_exec), 1)
 ifeq ($(UK_HAVE_DOT_CONFIG),y)
 # Hide troublesome environment variables from sub processes
 unexport CONFIG_CROSS_COMPILE
+unexport CONFIG_COMPILER
 #unexport CC
 #unexport LD
 #unexport AR
@@ -545,11 +546,18 @@ ifneq ("$(origin CROSS_COMPILE)","undefined")
 CONFIG_CROSS_COMPILE := $(CROSS_COMPILE:"%"=%)
 endif
 
+ifneq ("$(origin COMPILER)","undefined")
+	CONFIG_COMPILER := $(COMPILER:"%"=%)
+else
+	CONFIG_COMPILER := gcc
+endif
+
+
 $(eval $(call verbose_include,$(CONFIG_UK_BASE)/arch/$(UK_FAMILY)/Compiler.uk))
 
 # Make variables (CC, etc...)
-LD		:= $(CONFIG_CROSS_COMPILE)gcc
-CC		:= $(CONFIG_CROSS_COMPILE)gcc
+LD		:= $(CONFIG_CROSS_COMPILE)$(CONFIG_COMPILER)
+CC		:= $(CONFIG_CROSS_COMPILE)$(CONFIG_COMPILER)
 CPP		:= $(CC)
 CXX		:= $(CPP)
 GOC		:= $(CONFIG_CROSS_COMPILE)gccgo-7
@@ -628,15 +636,17 @@ $(eval $(call verbose_include,$(CONFIG_UK_BASE)/Makefile.uk)) # Unikraft base
 
 ifeq ($(call qstrip,$(UK_PLATS) $(UK_PLATS-y)),)
 $(warning You did not choose any target platform.)
-$(warning Please choose at least one target platform in the configuration!)
+$(error Please choose at least one target platform in the configuration!)
 endif
 ifneq ($(CONFIG_HAVE_BOOTENTRY),y)
 $(error You did not select a library that handles bootstrapping! (e.g., ukboot))
 endif
 
 ifeq ($(CONFIG_OPTIMIZE_LTO), y)
+ifeq ($(call have_gcc),y)
 ifneq ($(call gcc_version_ge,6,1),y)
 $(error Your gcc version does not support incremental link time optimisation)
+endif
 endif
 endif
 

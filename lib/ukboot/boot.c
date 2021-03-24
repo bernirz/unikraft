@@ -31,8 +31,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <uk/config.h>
@@ -65,7 +63,7 @@
 #ifdef CONFIG_LIBUKLIBPARAM
 #include <uk/libparam.h>
 #endif /* CONFIG_LIBUKLIBPARAM */
-#if CONFIG_LIBUKSP
+#ifdef CONFIG_LIBUKSP
 #include <uk/sp.h>
 #endif
 #include "banner.h"
@@ -103,6 +101,10 @@ static void main_thread_func(void *arg)
 			goto exit;
 		}
 	}
+
+#ifdef CONFIG_LIBUKSP
+	uk_stack_chk_guard_setup();
+#endif
 
 	print_banner(stdout);
 	fflush(stdout);
@@ -186,13 +188,6 @@ void ukplat_entry(int argc, char *argv[])
 #if CONFIG_LIBUKSCHED
 	struct uk_sched *s = NULL;
 	struct uk_thread *main_thread = NULL;
-#endif
-
-	/* We use a macro because if we were to use a function we
-	 * would not be able to return from the function if we have
-	 * changed the stack protector inside the function */
-#if CONFIG_LIBUKSP
-	UKSP_INIT_CANARY();
 #endif
 
 	uk_ctor_func_t *ctorfn;

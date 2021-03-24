@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <errno.h>
@@ -225,14 +223,14 @@ UK_SYSCALL_R_DEFINE(pid_t, getppid)
 	return UNIKRAFT_PPID;
 }
 
-pid_t setsid(void)
+UK_SYSCALL_DEFINE(pid_t, setsid)
 {
 	/* We have a single "session" with a single "process" */
 	errno = EPERM;
 	return (pid_t) -1;
 }
 
-pid_t getsid(pid_t pid)
+UK_SYSCALL_DEFINE(pid_t, getsid, pid_t, pid)
 {
 	if (pid != 0) {
 		/* We support only calls for the only calling "process" */
@@ -242,7 +240,7 @@ pid_t getsid(pid_t pid)
 	return UNIKRAFT_SID;
 }
 
-int setpgid(pid_t pid, pid_t pgid)
+UK_SYSCALL_DEFINE(int, setpgid, pid_t, pid, pid_t, pgid)
 {
 	if (pid != 0) {
 		/* We support only calls for the only calling "process" */
@@ -257,7 +255,7 @@ int setpgid(pid_t pid, pid_t pgid)
 	return 0;
 }
 
-pid_t getpgid(pid_t pid)
+UK_SYSCALL_DEFINE(pid_t, getpgid, pid_t, pid)
 {
 	if (pid != 0) {
 		/* We support only calls for the only calling "process" */
@@ -267,7 +265,7 @@ pid_t getpgid(pid_t pid)
 	return UNIKRAFT_PGID;
 }
 
-pid_t getpgrp(void)
+UK_SYSCALL_R_DEFINE(pid_t, getpgrp)
 {
 	return UNIKRAFT_PGID;
 }
@@ -300,7 +298,7 @@ int nice(int inc __unused)
 	return -1;
 }
 
-int getpriority(int which, id_t who)
+UK_SYSCALL_DEFINE(int, getpriority, int, which, id_t, who)
 {
 	int rc = 0;
 
@@ -325,7 +323,7 @@ int getpriority(int which, id_t who)
 	return rc;
 }
 
-int setpriority(int which, id_t who, int prio)
+UK_SYSCALL_DEFINE(int, setpriority, int, which, id_t, who, int, prio)
 {
 	int rc = 0;
 
@@ -345,7 +343,7 @@ int setpriority(int which, id_t who, int prio)
 			rc = -1;
 		}
 		break;
-	default:
+default:
 		errno = EINVAL;
 		rc = -1;
 		break;

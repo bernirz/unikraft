@@ -28,8 +28,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #include <uk/essentials.h>
@@ -64,6 +62,12 @@ int dladdr(const void *addr __unused, Dl_info *info __unused)
 }
 
 int dlinfo(void *handle __unused, int request __unused, void *info __unused)
+{
+	return 0;
+}
+
+void *dlvsym(void *handle __unused, const char *symbol __unused,
+		const char *version __unused)
 {
 	return 0;
 }

@@ -29,8 +29,6 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
- *
- * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
 #ifndef __STDIO_H__
@@ -80,6 +78,8 @@ int  sscanf(const char *str, const char *fmt, ...)          __scanf(2, 3);
 
 int vasprintf(char **str, const char *fmt, va_list ap);
 int  asprintf(char **str, const char *fmt, ...)             __printf(2, 3);
+
+void psignal(int sig, const char *s);
 
 #ifdef __STDIO_H_DEFINED_va_list
 #undef va_list

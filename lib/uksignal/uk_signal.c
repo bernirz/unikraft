@@ -1,8 +1,51 @@
+<<<<<<< HEAD
+=======
+/* SPDX-License-Identifier: BSD-3-Clause */
+/*
+ * Authors:  Mihai Pogonaru <pogonarumihai@gmail.com>
+ *		     Teodora Serbanescu <teo.serbanescu16@gmail.com>
+ *		     Felipe Huici <felipe.huici@neclab.eu>
+ *		     Bernard Rizzo <b.rizzo@student.uliege.be>
+ *
+ * Copyright (c) 2021, University Politehnica of Bucharest.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGE.
+ *
+ */
+>>>>>>> upstream/staging
 #include <errno.h>
 
 #include <uk/alloc.h>
 #include <uk/print.h>
+<<<<<<< HEAD
 #include <uk/signal.h>
+=======
+#include <signal.h>
+>>>>>>> upstream/staging
 #include <uk/thread.h>
 #include <uk/uk_signal.h>
 
@@ -89,12 +132,22 @@ int uk_sig_handle_signals(void)
 	uk_sigandset(&executable, &ptr->pending);
 
 	while (!uk_sigisempty(&executable)) {
+<<<<<<< HEAD
 		signal = uk_list_first_entry(&ptr->pending_signals, struct uk_signal, list_node);
+=======
+		signal = uk_list_first_entry(&ptr->pending_signals,
+					     struct uk_signal, list_node);
+>>>>>>> upstream/staging
 
 		/* move it last if it's blocked */
 		if (uk_sigismember(&ptr->mask, signal->info.si_signo)) {
 			uk_list_del(&signal->list_node);
+<<<<<<< HEAD
 			uk_list_add_tail(&signal->list_node, &ptr->pending_signals);
+=======
+			uk_list_add_tail(&signal->list_node,
+					 &ptr->pending_signals);
+>>>>>>> upstream/staging
 			continue;
 		}
 
@@ -154,7 +207,12 @@ uk_deliver_signal_unmasked(struct uk_thread_sig *th_sig, siginfo_t *sig)
 			th_sig->wait.status != UK_SIG_WAITING_SCHED) {
 		th_sig->wait.status = UK_SIG_WAITING_SCHED;
 
+<<<<<<< HEAD
 		tid = __containerof(th_sig, struct uk_thread, signals_container);
+=======
+		tid = __containerof(th_sig, struct uk_thread,
+				    signals_container);
+>>>>>>> upstream/staging
 		uk_thread_wake(tid);
 	}
 
@@ -264,7 +322,11 @@ int uk_thread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
 		case SIG_UNBLOCK:
 			uk_sigcopyset(&tmp, set);
 			uk_sigreverseset(&tmp);
+<<<<<<< HEAD
 			uk_sigandset(mask, set);
+=======
+			uk_sigandset(mask, &tmp);
+>>>>>>> upstream/staging
 			break;
 		case SIG_SETMASK:
 			uk_sigcopyset(mask, set);
@@ -276,7 +338,13 @@ int uk_thread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
 
 		uk_sigset_remove_unmaskable(mask);
 
+<<<<<<< HEAD
 		/* Changed the mask, see if we can deliver any pending signals */
+=======
+		/* Changed the mask, see if we can deliver
+		 * any pending signals
+		 */
+>>>>>>> upstream/staging
 		uk_deliver_signals_maskchange();
 
 		uk_sig_handle_signals();
