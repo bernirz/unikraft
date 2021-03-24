@@ -1,0 +1,90 @@
+From 80f628bdf1b9ac2ff9f587c2174d4e11ab71a760 Mon Sep 17 00:00:00 2001
+From: Bernard Rizzo <b.rizzo@student.uliege.be>
+Date: Wed, 24 Mar 2021 16:39:36 +0100
+Subject: [UNIKRAFT/LIBUKSIGNAL] update of struct sigset_t to 128bits
+
+Signed-off-by: Bernard Rizzo <b.rizzo@student.uliege.be>
+---
+ lib/nolibc/musl-imported/include/signal.h |  3 +-
+ lib/uksignal/include/uk/bits/sigset.h     | 48 +++++++++++++++++------
+ 2 files changed, 38 insertions(+), 13 deletions(-)
+
+diff --git a/lib/nolibc/musl-imported/include/signal.h b/lib/nolibc/musl-imported/include/signal.h
+index c51c9f3..71e79e4 100644
+--- a/lib/nolibc/musl-imported/include/signal.h
++++ b/lib/nolibc/musl-imported/include/signal.h
+@@ -60,8 +60,7 @@ extern "C" {
+ 
+ typedef int pid_t;
+ typedef int sig_atomic_t;
+-typedef unsigned long __sigset_t;
+-typedef __sigset_t sigset_t;
++typedef struct __sigset_t { unsigned long __bits[128/sizeof(long)]; } sigset_t;
+ 
+ #define NSIG _NSIG
+ 
+diff --git a/lib/uksignal/include/uk/bits/sigset.h b/lib/uksignal/include/uk/bits/sigset.h
+index 8f92cfb..85687f7 100644
+--- a/lib/uksignal/include/uk/bits/sigset.h
++++ b/lib/uksignal/include/uk/bits/sigset.h
+@@ -43,19 +43,45 @@ extern "C" {
+ 
+ /* TODO: do we have gnu statement expression?  */
+ /* internal use */
+-#define uk_sigemptyset(ptr)	(*(ptr) = 0)
+-#define uk_sigfillset(ptr)  (*(ptr) = ~((unsigned long) 0))
+-#define uk_sigaddset(ptr, signo) (*(ptr) |= (1 << ((signo) - 1)))
+-#define uk_sigdelset(ptr, signo) (*(ptr) &= ~(1 << ((signo) - 1)))
+-#define uk_sigcopyset(ptr1, ptr2) (*(ptr1) = *(ptr2))
+-#define uk_sigandset(ptr1, ptr2)  (*(ptr1) &= *(ptr2))
+-#define uk_sigorset(ptr1, ptr2)	  (*(ptr1) |= *(ptr2))
+-#define uk_sigreverseset(ptr)	  (*(ptr) = ~(*(ptr)))
+-#define uk_sigismember(ptr, signo) (*(ptr) & (1 << ((signo) - 1)))
+-#define uk_sigisempty(ptr) (*(ptr) == 0)
++#define uk_sigemptyset(ptr)	\
++		do {	\
++	     (((ptr)->__bits[0]) = 0);	\
++            (((ptr)->__bits[1]) = 0);	\
++		} while (0)
++#define uk_sigfillset(ptr)	\
++		do {	\
++            (((ptr)->__bits[0]) = ~((unsigned long) 0));	\
++            (((ptr)->__bits[1]) = ~((unsigned long) 0));	\
++		} while (0)
++#define uk_sigaddset(ptr, signo)	\
++		do {	\
++            (((ptr)->__bits[0]) |= (1 << ((signo) - 1))); \
++		} while (0)
++#define uk_sigdelset(ptr, signo)	\
++		do {	\
++            (((ptr)->__bits[0]) &= ~(1 << ((signo) - 1))); \
++		} while (0)
++#define uk_sigcopyset(ptr1, ptr2)	\
++		do {	\
++		(((ptr1)->__bits[0]) = ((ptr2)->__bits[0])); \
++		} while (0)
++#define uk_sigandset(ptr1, ptr2)	\
++		do {	\
++            (((ptr1)->__bits[0]) &= ((ptr2)->__bits[0])); \
++		} while (0)
++#define uk_sigorset(ptr1, ptr2)	\
++		do {	\
++            (((ptr1)->__bits[0]) |= ((ptr2)->__bits[0])); \
++		} while (0)
++#define uk_sigreverseset(ptr)	\
++		do {	\
++            (((ptr)->__bits[0]) = ~((ptr)->__bits[0])); \
++		} while (0)
++#define uk_sigismember(ptr, signo) (((ptr)->__bits[0]) & (1 << ((signo) - 1)))
++#define uk_sigisempty(ptr) (((ptr)->__bits[0]) == 0)
+ 
+ #ifdef __cplusplus
+ }
+ #endif
+ 
+-#endif /* __UK_SIGSET_H__ */
++#endif /* __UK_SIGSET_H__ */
+\ No newline at end of file
+-- 
+2.25.1
+
