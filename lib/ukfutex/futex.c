@@ -70,8 +70,8 @@ static int futex_cmp_requeue(uint32_t *uaddr, uint32_t val,
 	const struct timespec *timeout,
 	uint32_t *uaddr2, uint32_t val3)
 {
-	unsigned long tmp = (unsigned long)(timeout->tv_nsec);
-	uint32_t val2 =  tmp & 0xFFFFFFFF;
+	unsigned long tmpval = (unsigned long)(timeout->tv_nsec);
+	uint32_t val2 =  tmpval & 0xFFFFFFFF;
 
 	if (!(val3 == ukarch_load_n(uaddr))) {
 		errno = EAGAIN;
