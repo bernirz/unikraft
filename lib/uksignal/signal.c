@@ -1,5 +1,3 @@
-<<<<<<< HEAD
-=======
 /*
  * Copyright (C) 2013 Cloudius Systems, Ltd.
  *
@@ -34,25 +32,19 @@
  *     OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *     OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
->>>>>>> upstream/staging
 /* adapted from OSv */
 
 #include <errno.h>
 
 #include <uk/alloc.h>
 #include <uk/sched.h>
-<<<<<<< HEAD
-#include <uk/signal.h>
-#include <uk/thread.h>
-#include <uk/uk_signal.h>
-=======
 #include <signal.h>
 #include <uk/thread.h>
 #include <uk/uk_signal.h>
 #include <uk/essentials.h>
 #include <uk/process.h>
 #include <unistd.h>
->>>>>>> upstream/staging
+#include <uk/syscall.h>
 
 /*
  * Tries to deliver a pending signal to the current thread
@@ -117,12 +109,8 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 	if (act) {
 		/* TODO: SA_NODEFER */
 		uk_proc_sig.sigaction[signum - 1] = *act;
-<<<<<<< HEAD
-		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask, signum);
-=======
 		uk_sigaddset(&uk_proc_sig.sigaction[signum - 1].sa_mask,
 			     signum);
->>>>>>> upstream/staging
 
 		/* remove signal from where it is pending */
 		if (is_sig_ign(act)) {
@@ -131,21 +119,12 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 
 			/* remove it from threads*/
 			uk_list_for_each(i, &uk_proc_sig.thread_sig_list) {
-<<<<<<< HEAD
-				th_sig = uk_list_entry(i, struct uk_thread_sig, list_node);
-=======
 				th_sig = uk_list_entry(i, struct uk_thread_sig,
 						       list_node);
->>>>>>> upstream/staging
 
 				signal = uk_sig_th_get_pending(th_sig, signum);
 
 				if (signal) {
-<<<<<<< HEAD
-					/* remove it from the list of pending signals */
-					uk_list_del(&signal->list_node);
-					uk_sigdelset(&th_sig->pending, signal->info.si_signo);
-=======
 					/*
 					 * remove it from the list of
 					 * pending signalsi
@@ -153,7 +132,6 @@ sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 					uk_list_del(&signal->list_node);
 					uk_sigdelset(&th_sig->pending,
 						     signal->info.si_signo);
->>>>>>> upstream/staging
 					uk_free(uk_alloc_get_default(), signal);
 				}
 			}
@@ -203,14 +181,6 @@ int sigprocmask(int how, const sigset_t *set, sigset_t *oldset)
 	return uk_thread_sigmask(how, set, oldset);
 }
 
-<<<<<<< HEAD
-int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset)
-{
-	return uk_thread_sigmask(how, set, oldset);
-}
-
-=======
->>>>>>> upstream/staging
 int sigsuspend(const sigset_t *mask)
 {
 	/* If the signals are ignored, this doesn't return <- POSIX */
@@ -383,8 +353,6 @@ int kill(pid_t pid, int sig)
 	return 0;
 }
 
-<<<<<<< HEAD
-=======
 int killpg(int pgrp, int sig)
 {
 	if (pgrp != UNIKRAFT_PGID || pgrp != 0) {
@@ -395,13 +363,10 @@ int killpg(int pgrp, int sig)
 	return kill(getpid(), sig);
 }
 
->>>>>>> upstream/staging
 int raise(int sig)
 {
 	return uk_sig_thread_kill(uk_thread_current(), sig);
 }
-<<<<<<< HEAD
-=======
 
 /**
  * Stubbing the function support from requiring signal.
@@ -417,8 +382,7 @@ int siginterrupt(int sig __unused, int flag __unused)
 	return 0;
 }
 
-int pause(void)
+UK_SYSCALL_R_DEFINE(int, pause)
 {
 	return 0;
 }
->>>>>>> upstream/staging

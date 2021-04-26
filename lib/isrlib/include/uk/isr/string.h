@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: BSD-3-Clause */
 /*
- * Authors: Costin Lupu <costin.lupu@cs.pub.ro>
+ * Authors: Simon Kuenzer <simon.kuenzer@neclab.eu>
+ *          Cristian Vijelie <cristianvijelie@gmail.com>
  *
- * Copyright (c) 2018, NEC Europe Ltd., NEC Corporation. All rights reserved.
+ *
+ * Copyright (c) 2017, NEC Europe Ltd., NEC Corporation. All rights reserved.
+ * Copyright (c) 2020, University Politehnica of Bucharest. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,33 +31,42 @@
  * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
+ *
  */
-#ifndef __PLAT_CMN_SW_CTX_H__
-#define __PLAT_CMN_SW_CTX_H__
 
-#ifndef __ASSEMBLY__
-#include <stdint.h>
-#include <uk/plat/thread.h>
+#ifndef __UK_ISR_STRING_H__
+#define __UK_ISR_STRING_H__
 
-struct sw_ctx {
-	unsigned long sp;	/* Stack pointer */
-	unsigned long ip;	/* Instruction pointer */
-	unsigned long tlsp;	/* thread-local storage pointer */
-	uintptr_t extregs;	/* Pointer to an area to which extended
-				 * registers are saved on context switch.
-				 */
-	uint8_t _extregs[];     /* Reserved memory area for extended
-				 * registers state
-				 */
-};
-
-void sw_ctx_callbacks_init(struct ukplat_ctx_callbacks *ctx_cbs);
+#ifdef __cplusplus
+extern "C" {
 #endif
 
-#define OFFSETOF_SW_CTX_SP      0
-#define OFFSETOF_SW_CTX_IP      8
+#include <stddef.h>
 
-/* TODO This should be better defined in the thread header */
-#define OFFSETOF_UKTHREAD_SW_CTX  16
+void *memcpy_isr(void *dst, const void *src, size_t len);
+void *memset_isr(void *ptr, int val, size_t len);
+void *memchr_isr(const void *ptr, int val, size_t len);
+void *memrchr_isr(const void *m, int c, size_t n);
+int memcmp_isr(const void *ptr1, const void *ptr2, size_t len);
+void *memmove_isr(void *dst, const void *src, size_t len);
 
-#endif /* __PLAT_CMN_SW_CTX_H__ */
+char *strncpy_isr(char *dst, const char *src, size_t len);
+char *strcpy_isr(char *dst, const char *src);
+size_t strlcpy_isr(char *d, const char *s, size_t n);
+size_t strlcat_isr(char *d, const char *s, size_t n);
+size_t strnlen_isr(const char *str, size_t maxlen);
+size_t strlen_isr(const char *str);
+char *strchrnul_isr(const char *s, int c);
+char *strchr_isr(const char *str, int c);
+char *strrchr_isr(const char *s, int c);
+int strncmp_isr(const char *str1, const char *str2, size_t len);
+int strcmp_isr(const char *str1, const char *str2);
+size_t strcspn_isr(const char *s, const char *c);
+size_t strspn_isr(const char *s, const char *c);
+char *strtok_isr(char *restrict s, const char *restrict sep, char **restrict p);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __UK_ISR_STRING_H__ */

@@ -12,6 +12,11 @@ getpwuid
 getgrnam
 setgid
 setuid
+uk_syscall_e_setuid
+uk_syscall_r_setuid
+capset
+uk_syscall_e_capset
+uk_syscall_r_capset
 issetugid
 initgroups
 uk_syscall_e_getpid

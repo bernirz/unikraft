@@ -3,8 +3,6 @@ uk_proc_sig
 
 uk_sig_handle_signals
 uk_proc_sig_init
-uk_thread_sig_init
-uk_thread_sig_uninit
 uk_sig_thread_kill
 uk_thread_sigmask
 
@@ -16,26 +14,19 @@ sigsuspend
 sigpending
 sigwait
 kill
-<<<<<<< HEAD
-raise
-pthread_sigmask
-=======
 killpg
 raise
 siginterrupt
->>>>>>> upstream/staging
 
 # sigset.h
 sigemptyset
 sigfillset
 sigaddset
 sigdelset
-<<<<<<< HEAD
-sigismember
-=======
 sigismember
 
 # unistd.h
 alarm
 pause
->>>>>>> upstream/staging
+uk_syscall_e_pause
+uk_syscall_r_pause

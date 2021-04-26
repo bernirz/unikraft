@@ -93,7 +93,7 @@ UK_SYSCALL_R_DEFINE(uid_t, getuid)
 	return 0;
 }
 
-int setuid(uid_t uid __unused)
+UK_SYSCALL_R_DEFINE(int, setuid, uid_t, uid)
 {
 	return 0;
 }
@@ -119,6 +119,11 @@ int setresuid(uid_t ruid __unused, uid_t euid __unused, uid_t suid __unused)
 }
 
 int setreuid(uid_t ruid __unused, uid_t euid __unused)
+{
+	return 0;
+}
+
+UK_SYSCALL_R_DEFINE(int, capset, void*, hdrp, void*, datap)
 {
 	return 0;
 }
